@@ -8,9 +8,10 @@ members = [
     "crates/wef/examples/wef-winit",
     "crates/webview",
     "crates/webview/examples/wef-example",
+    "crates/zot"
 ]
 
-default-members = ["crates/story"]
+default-members = ["crates/zot"]
 resolver = "2"
 
 [workspace.dependencies]

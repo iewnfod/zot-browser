@@ -10576,6 +10576,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "zot-browser"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "fake",
+ "gpui",
+ "gpui-component",
+ "gtk",
+ "itertools 0.14.0",
+ "rand 0.8.5",
+ "raw-window-handle",
+ "regex",
+ "reqwest_client",
+ "rust-embed",
+ "serde",
+ "serde_json",
+ "story",
+ "tracing",
+ "tracing-subscriber",
+ "tree-sitter-navi",
+ "unindent",
+ "wef",
+]
+
+[[package]]
 name = "zune-core"
 version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
