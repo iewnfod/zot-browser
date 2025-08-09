@@ -1,25 +1,96 @@
 use gpui::{prelude::*, *};
 use gpui_component::{
-    button::Button, h_flex, input::{InputEvent, InputState, TextInput}, resizable::{h_resizable, resizable_panel, ResizableState}, sidebar::{Sidebar, SidebarGroup, SidebarMenu, SidebarMenuItem}, v_flex, webview::WebView, wry::WebViewBuilder, ActiveTheme as _, IconName, Selectable
+    button::{Button, ButtonVariants}, h_flex, input::{InputEvent, InputState, TextInput}, resizable::{h_resizable, resizable_panel, ResizableState}, sidebar::{Sidebar, SidebarGroup, SidebarMenu, SidebarMenuItem}, v_flex, webview::WebView, wry::WebViewBuilder, ActiveTheme as _, ContextModal, Disableable, IconName, Selectable
 };
 use story::*;
 
 pub struct Zot {
+    focus_handler: FocusHandle,
     tabs: Vec<Entity<WebView>>,
     active_index: Option<usize>,
     url_input: Entity<InputState>,
     sidebar_state: Entity<ResizableState>,
-    show_new_tab_modal: bool,
-    webview: Entity<WebView>,
+    new_tab_input: Entity<InputState>,
     _subscriptions: Vec<Subscription>,
 }
 
 impl Zot {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let url_input = cx.new(|cx| InputState::new(window, cx));
+        let url_input = cx.new(|cx| InputState::new(window, cx).placeholder("Search..."));
+        let new_tab_input = cx.new(|cx| InputState::new(window, cx).placeholder("Search..."));
 
+        let _subscriptions = vec![
+            cx.subscribe(
+                &new_tab_input,
+                |this: &mut Self, input, e: &InputEvent, cx| match e {
+                    InputEvent::PressEnter { .. } => {
+                        let url = input.read(cx).value().clone();
+                        if let Some(index) = this.active_index {
+                            println!("Change Tab Url");
+                            if let Some(tab) = this.tabs.get(index) {
+                                tab.update(cx, |view, _| {
+                                    view.load_url(&url);
+                                });
+                            }
+                        } else {
+                            println!("New Tab");
+                            if let Some(handle) = cx.active_window() {
+                                cx.update_window(handle, |_view, window, cx| {
+                                    let tab = this.new_webview(
+                                        Some(url.to_string()),
+                                        window,
+                                        cx
+                                    );
+                                    this.tabs.push(tab);
+                                    this.active_index = Some(this.tabs.len() - 1);
+
+                                    window.close_modal(cx);
+                                }).unwrap();
+                                cx.notify();
+                            }
+                        }
+                    },
+                    _ => {}
+                }
+            )
+        ];
+
+        let tabs = vec![];
+
+        let this = Self {
+            focus_handler: cx.focus_handle(),
+            url_input,
+            tabs,
+            active_index: None,
+            sidebar_state: ResizableState::new(cx),
+            new_tab_input,
+            _subscriptions,
+        };
+
+        this
+    }
+
+    fn view(window: &mut Window, cx: &mut App) -> Entity<Self> {
+        cx.new(|cx| Self::new(window, cx))
+    }
+
+    fn to_index(&mut self, index: usize, window: &mut Window, cx: &mut Context<Self>) {
+        self.active_index = Some(index);
+        if let Some(tab) = self.tabs.get(index) {
+            if let Ok(url) = tab.read(cx).url() {
+                self.url_input.update(cx, |input, cx| {
+                    input.set_value(url, window, cx);
+                });
+            }
+        }
+    }
+
+    fn new_webview(&self, url: Option<String>, window: &mut Window, cx: &mut App) -> Entity<WebView> {
         let webview = cx.new(|cx| {
-            let builder = WebViewBuilder::new();
+            let mut builder = WebViewBuilder::new();
+            if let Some(url) = url {
+                builder = builder.with_url(url);
+            }
             #[cfg(not(any(
                 target_os = "windows",
                 target_os = "macos",
@@ -52,62 +123,49 @@ impl Zot {
             WebView::new(webview, window, cx)
         });
 
-        let _subscriptions = vec![
-            cx.subscribe(
-                &url_input,
-                |this: &mut Self, input, e: &InputEvent, cx| match e {
-                    InputEvent::PressEnter { .. } => {
-                        let url = input.read(cx).value().clone();
-                        if let Some(index) = this.active_index {
-                            println!("Change Tab Url");
-                            if let Some(tab) = this.tabs.get(index) {
-                                tab.update(cx, |view, _| {
-                                    view.load_url(&url);
-                                });
-                            }
-                        } else {
-                            println!("New Tab");
-                            let tab = this.webview.clone();
-                            tab.update(cx, |tab, _cx| {
-                                tab.load_url(&url);
-                            });
-                            this.tabs.push(tab);
-                            this.active_index = Some(this.tabs.len() - 1);
-                        }
-                    },
-                    _ => {}
-                }
-            )
-        ];
-
-        let tabs = vec![];
-
-        let this = Self {
-            url_input,
-            tabs,
-            active_index: None,
-            sidebar_state: ResizableState::new(cx),
-            show_new_tab_modal: false,
-            webview,
-            _subscriptions,
-        };
-
-        this
+        webview
     }
 
-    fn view(window: &mut Window, cx: &mut App) -> Entity<Self> {
-        cx.new(|cx| Self::new(window, cx))
-    }
+    fn show_new_tab_modal(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let new_tab_input = self.new_tab_input.clone();
 
-    fn to_index(&mut self, index: usize, window: &mut Window, cx: &mut Context<Self>) {
-        self.active_index = Some(index);
-        if let Some(tab) = self.tabs.get(index) {
-            if let Ok(url) = tab.read(cx).url() {
-                self.url_input.update(cx, |input, cx| {
-                    input.set_value(url, window, cx);
-                });
-            }
-        }
+        window.open_modal(cx, move |modal, _window, cx| {
+            modal
+                .overlay(true)
+                .keyboard(true)
+                .show_close(false)
+                .overlay_closable(true)
+                .h_12()
+                .p_2()
+                .gap_0()
+                .child(
+                    h_flex()
+                        .w_full()
+                        .items_center()
+                        .justify_center()
+                        .border_color(cx.theme().border)
+                        .border_b_2()
+                        .pb_1()
+                        .child(
+                            Button::new("search")
+                                .text()
+                                .icon(IconName::Search)
+                                .pl_2()
+                                .pr_0()
+                                .disabled(true)
+                        )
+                        .child(
+                            TextInput::new(&new_tab_input)
+                                .appearance(false)
+                                .pl_2p5()
+                        )
+                )
+        });
+
+        self.new_tab_input.focus_handle(cx).focus(window);
+        self.new_tab_input.update(cx, |input, cx| {
+            input.set_value("", window, cx);
+        });
     }
 }
 
@@ -118,96 +176,102 @@ impl Render for Zot {
             active_tab = self.tabs.get(index);
         }
 
-        h_resizable("gallery-container", self.sidebar_state.clone())
+        div()
+            .track_focus(&self.focus_handler)
+            .size_full()
             .child(
-                resizable_panel()
-                    .size(px(255.))
-                    .size_range(px(200.)..px(320.))
+                h_resizable("container", self.sidebar_state.clone())
                     .child(
-                        Sidebar::left()
-                            .width(relative(1.))
-                            .border_width(px(0.))
-                            .header(
-                                v_flex()
-                                    .w_full()
-                                    .gap_3()
-                                    .child(
-                                        div()
-                                            .bg(cx.theme().sidebar_accent)
-                                            .flex_1()
-                                            .p_1()
-                                            .pl_0()
-                                            .pr_0()
-                                            .rounded_md()
-                                            .text_sm()
-                                            .h_8()
-                                            .child(
-                                                h_flex()
-                                                    .w_full()
-                                                    .h_full()
-                                                    .items_center()
-                                                    .justify_center()
-                                                    .child(
-                                                        TextInput::new(&self.url_input)
-                                                            .appearance(false)
-                                                            .h_8()
-                                                    )
-                                            ),
-                                    ),
-                            )
+                        resizable_panel()
+                            .size(px(255.))
+                            .size_range(px(200.)..px(320.))
                             .child(
-                                SidebarGroup::new("Tabs").child(
-                                    SidebarMenu::new().children(
-                                        self.tabs.clone().into_iter().enumerate().map(
-                                            |(index, _tab)| {
-                                                SidebarMenuItem::new(format!("Tab {}", index + 1))
-                                                    .active(
-                                                        self.active_index == Some(index),
-                                                    )
-                                                    .on_click(
-                                                        cx.listener(
-                                                            move |this, _e: &ClickEvent, window, cx| {
-                                                                this.to_index(index, window, cx);
-                                                                cx.notify();
-                                                            }
-                                                        )
-                                                    )
-                                            }
+                                Sidebar::left()
+                                    .width(relative(1.))
+                                    .border_width(px(0.))
+                                    .header(
+                                        v_flex()
+                                            .w_full()
+                                            .gap_3()
+                                            .child(
+                                                div()
+                                                    .bg(cx.theme().sidebar_accent)
+                                                    .flex_1()
+                                                    .p_1()
+                                                    .pl_0()
+                                                    .pr_0()
+                                                    .rounded_md()
+                                                    .text_sm()
+                                                    .h_8()
+                                                    .child(
+                                                        h_flex()
+                                                            .w_full()
+                                                            .h_full()
+                                                            .items_center()
+                                                            .justify_center()
+                                                            .gap_0()
+                                                            .child(
+                                                                TextInput::new(&self.url_input)
+                                                                    .appearance(false)
+                                                                    .h_8()
+                                                            )
+                                                    ),
+                                            ),
+                                    )
+                                    .child(
+                                        SidebarGroup::new("Tabs").child(
+                                            SidebarMenu::new().children(
+                                                self.tabs.clone().into_iter().enumerate().map(
+                                                    |(index, _tab)| {
+                                                        SidebarMenuItem::new(format!("Tab {}", index + 1))
+                                                            .active(
+                                                                self.active_index == Some(index),
+                                                            )
+                                                            .on_click(
+                                                                cx.listener(
+                                                                    move |this, _e: &ClickEvent, window, cx| {
+                                                                        this.to_index(index, window, cx);
+                                                                        cx.notify();
+                                                                    }
+                                                                )
+                                                            )
+                                                    }
+                                                )
+                                            )
                                         )
                                     )
-                                )
-                            )
-                            .footer(
-                                Button::new("new-tab")
-                                    .icon(IconName::Plus)
-                                    .label("New Tab")
-                                    .w_full()
-                                    .h_10()
-                                    .outline()
-                                    .secondary_selected(true)
-                                    .on_click(
-                                        cx.listener(
-                                            move |this, _: &ClickEvent, window, cx| {
-                                                this.active_index = None;
-                                                this.url_input.update(cx, |input, cx| {
-                                                    input.set_value("", window, cx);
-                                                });
-                                                cx.notify();
-                                            }
-                                        )
+                                    .footer(
+                                        Button::new("new-tab")
+                                            .icon(IconName::Plus)
+                                            .label("New Tab")
+                                            .w_full()
+                                            .h_10()
+                                            .outline()
+                                            .secondary_selected(true)
+                                            .on_click(
+                                                cx.listener(
+                                                    move |this, _: &ClickEvent, window, cx| {
+                                                        this.active_index = None;
+                                                        this.url_input.update(cx, |input, cx| {
+                                                            input.set_value("", window, cx);
+                                                        });
+                                                        this.show_new_tab_modal(window, cx);
+                                                        cx.notify();
+                                                    }
+                                                )
+                                            )
                                     )
-                            )
-                    ),
-            )
-            .child(
-            div()
-                    .id("tab-container")
-                    .w_full()
-                    .h_full()
-                    .when_some(active_tab, |this, tab| {
-                        this.child(tab.clone())
-                    })
-                    .into_any_element()
+                            ),
+                    )
+                    .child(
+                    div()
+                            .id("tab-container")
+                            .size_full()
+                            .when_some(active_tab, |this, tab| {
+                                this.child(tab.clone())
+                            })
+                            .into_any_element()
+                    )
             )
     }
 }
