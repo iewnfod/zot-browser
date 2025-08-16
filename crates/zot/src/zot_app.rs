@@ -174,6 +174,7 @@ impl Zot {
                         .border_color(cx.theme().border)
                         .border_b_2()
                         .pb_1()
+                        .gap_0()
                         .child(
                             Button::new("search-bt")
                                 .text()
@@ -185,7 +186,7 @@ impl Zot {
                         .child(
                             TextInput::new(&new_tab_input)
                                 .appearance(false)
-                                .pl_2p5()
+                                .pr_2()
                         )
                 )
                 .child(

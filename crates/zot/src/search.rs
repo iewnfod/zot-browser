@@ -35,8 +35,8 @@ pub struct SearchInfo {
 
 #[derive(IntoElement)]
 pub struct SearchListItem {
+	id: ElementId,
 	base: ListItem,
-	ix: IndexPath,
 	info: SearchInfo,
 	selected: bool
 }
@@ -45,12 +45,12 @@ impl SearchListItem {
 	pub fn new(
 		id: impl Into<ElementId>,
 		info: SearchInfo,
-		ix: IndexPath,
 		selected: bool
 	) -> Self {
+		let id: ElementId = id.into();
 		SearchListItem {
-			base: ListItem::new(id),
-			ix,
+			id: id.clone(),
+			base: ListItem::new(id.clone()),
 			info,
 			selected
 		}
@@ -104,12 +104,14 @@ impl RenderOnce for SearchListItem {
 
 		let name = self.get_name();
 		let desc = self.get_desc();
-		let icon_bt_id = format!("search-list-item-{}-icon-bt", &self.ix.row);
+
+		let icon_bt_id = format!("search-list-item-{}-icon-bt", &self.id);
 
 		self.base
 			.px_2()
 			.py_1()
-			.bg(bg_color)
+			.bg(bg_color.alpha(0.15))
+			.border_1()
 			.mt_2()
 			.when(self.selected, |this| {
 				this.border_color(cx.theme().selection)
@@ -119,28 +121,36 @@ impl RenderOnce for SearchListItem {
 				h_flex()
 					.gap_2()
 					.items_center()
+					.justify_between()
 					.child(
-						Button::new(SharedString::new(icon_bt_id))
-							.text()
-							.pl_2()
-							.pr_0()
-							.icon(
-								match self.info.icon {
-									SearchIcon::Name(icon) => Icon::new(icon),
-									SearchIcon::Custom(icon) => Icon::empty().path(icon)
-								}
+						h_flex()
+							.items_center()
+							.child(
+								Button::new(SharedString::new(icon_bt_id.clone()))
+									.text()
+									.disabled(true)
+									.mr_2()
+									.icon(
+										match self.info.icon {
+											SearchIcon::Name(icon) => Icon::new(icon),
+											SearchIcon::Custom(icon) => Icon::empty().path(icon)
+										}
+									)
 							)
-							.disabled(true)
-					)
-					.child(
-						div()
-							.text_color(text_color)
-							.child(name)
+							.child(
+								div()
+									.text_color(text_color)
+									.child(name)
+							)
 					)
 					.when(self.selected, |this| {
 						this
-							.child("--")
-							.child(desc)
+							.child(
+								div()
+									.text_color(cx.theme().caret.alpha(0.5))
+									.text_xs()
+									.child(desc)
+							)
 					})
 			)
 	}
@@ -199,7 +209,7 @@ impl ListDelegate for SearchListDelegate {
 		let selected = Some(ix) == self.selected_index;
 		if let Some(item) = self.items.get(ix.row) {
 			return Some(
-				SearchListItem::new(ix, item.clone(), ix, selected)
+				SearchListItem::new(ix, item.clone(), selected)
 			);
 		}
 		None
