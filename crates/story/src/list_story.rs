@@ -258,7 +258,7 @@ impl ListDelegate for CompanyListDelegate {
                 .px_2()
                 .gap_2()
                 .text_sm()
-                .text_color(cx.theme().muted)
+                .text_color(cx.theme().muted_foreground)
                 .child(Icon::new(IconName::Folder))
                 .child(industry.clone()),
         )
@@ -523,14 +523,7 @@ impl Render for ListStory {
                             .small()
                             .on_click(cx.listener(|this, _, window, cx| {
                                 this.company_list.update(cx, |list, cx| {
-                                    if let Some(selected) = list.selected_index() {
-                                        list.scroll_to_item(
-                                            selected,
-                                            ScrollStrategy::Top,
-                                            window,
-                                            cx,
-                                        );
-                                    }
+                                    list.scroll_to_selected_item(window, cx);
                                 })
                             })),
                     )

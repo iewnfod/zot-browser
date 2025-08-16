@@ -82,10 +82,17 @@ pub(super) fn parse_html(source: &str) -> Result<element::Node, SharedString> {
     Ok(node)
 }
 
+// TODO: Find a better and light-weight HTML minifier
 fn cleanup_html(source: &str) -> Vec<u8> {
-    let mut cfg = minify_html::Cfg::default();
-    cfg.keep_closing_tags = true;
-    minify_html::minify(source.as_bytes(), &cfg)
+    let mut w = std::io::Cursor::new(vec![]);
+    let mut r = std::io::Cursor::new(source);
+    let mut minify = super::html5minify::Minifier::new(&mut w);
+    minify.omit_doctype(true);
+    if let Ok(()) = minify.minify(&mut r) {
+        w.into_inner()
+    } else {
+        source.bytes().collect()
+    }
 }
 
 #[derive(Clone)]
@@ -781,7 +788,7 @@ mod tests {
         let cleaned = super::cleanup_html(html);
         assert_eq!(
             String::from_utf8(cleaned).unwrap(),
-            "<p>and <code>code</code> text</p>"
+            "<p>and <code>code</code> text"
         );
 
         let html = r#"<p>
@@ -792,7 +799,7 @@ mod tests {
         let cleaned = super::cleanup_html(html);
         assert_eq!(
             String::from_utf8(cleaned).unwrap(),
-            "<p>and <em> <code>code</code> <i>italic</i> </em> text</p>"
+            "<p>and <em><code>code</code> <i>italic</i></em> text"
         );
     }
 
@@ -828,7 +835,7 @@ mod tests {
         assert_eq!(
             node.to_markdown(),
             indoc::indoc! {r#"
-            and * code italic * text
+            and *code italic* text
 
             ![Example](https://example.com/image.png "Example Image")
 
