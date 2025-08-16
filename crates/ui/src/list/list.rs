@@ -619,7 +619,11 @@ where
                                 .cleanable()
                                 .p_0()
                                 .appearance(false),
-                        ),
+                        )
+                        // hide original list search input
+                        .h_0()
+                        .border_0()
+                        .overflow_hidden(),
                 )
             })
             .when(loading, |this| {
