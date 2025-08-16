@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use gpui::{div, prelude::FluentBuilder, ElementId, IntoElement, ParentElement, RenderOnce, SharedString, SharedUri, Styled, Task};
+use gpui::{div, prelude::FluentBuilder, ElementId, IntoElement, ParentElement, RenderOnce, SharedString, SharedUri, Styled};
 use gpui_component::{button::{Button, ButtonVariants}, h_flex, list::{ListDelegate, ListItem}, ActiveTheme, Disableable, Icon, IconName, IndexPath, Selectable};
 
 #[derive(Clone)]
@@ -25,12 +25,18 @@ impl PartialEq for SearchIcon {
 	}
 }
 
-#[derive(Default, Clone, PartialEq)]
+#[derive(Default, Clone)]
 pub struct SearchInfo {
 	pub icon: SearchIcon,
 	pub name: Option<SharedString>,
 	pub uri: SharedUri,
 	pub description: Option<SharedString>,
+}
+
+impl PartialEq for SearchInfo {
+	fn eq(&self, other: &Self) -> bool {
+		self.uri == other.uri
+	}
 }
 
 #[derive(IntoElement)]

@@ -5,6 +5,7 @@ use crate::zot_app::Zot;
 
 mod zot_app;
 mod search;
+mod uri;
 
 fn main() {
     let app = Application::new().with_assets(Assets);

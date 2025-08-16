@@ -3,7 +3,7 @@ use gpui_component::{
     button::{Button, ButtonVariants}, h_flex, input::{InputEvent, InputState, TextInput}, list::{List, ListEvent}, resizable::{h_resizable, resizable_panel, ResizableState}, sidebar::{Sidebar, SidebarGroup, SidebarMenu, SidebarMenuItem}, v_flex, webview::WebView, wry::WebViewBuilder, ActiveTheme as _, ContextModal, Disableable, IconName, Selectable
 };
 
-use crate::search::{SearchInfo, SearchListDelegate};
+use crate::{search::{SearchInfo, SearchListDelegate}, uri::{is_uri, uri_search_with_google}};
 
 pub struct Zot {
     focus_handler: FocusHandle,
@@ -71,9 +71,20 @@ impl Zot {
                     InputEvent::Change(v) => {
                         this.search_list.update(cx, |l: &mut List<SearchListDelegate>, _cx| {
                             let delegate = l.delegate_mut();
-                            let mut new_info = SearchInfo::default();
-                            new_info.uri = SharedUri::from(v);
-                            delegate.set_items(vec![new_info.clone(), new_info.clone(), new_info.clone(), new_info.clone(), new_info.clone()]);
+
+                            if v.is_empty() {
+                                delegate.set_items(vec![]);
+                            } else {
+                                let mut new_info = SearchInfo::default();
+                                if is_uri(v) {
+                                    new_info.uri = SharedUri::from(v);
+                                } else {
+                                    new_info.uri = SharedUri::from(uri_search_with_google(v));
+                                    new_info.name = Some(SharedString::from(v));
+                                    new_info.description = Some(SharedString::from("Search with Google"));
+                                }
+                                delegate.set_items(vec![new_info.clone(), new_info.clone(), new_info.clone(), new_info.clone(), new_info.clone()]);
+                            }
                         });
                         cx.notify();
                     },
