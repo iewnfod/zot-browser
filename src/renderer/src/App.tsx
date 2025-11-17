@@ -1,37 +1,23 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Button } from '@heroui/button';
 import { Input } from '@heroui/input';
+import WebView, { WebViewMethods } from '@renderer/components/WebView'
 
 function App() {
   const [url, setUrl] = useState("https://google.com/");
-  const webviewRef = useRef<HTMLWebViewElement>(null);
+  const webviewRef = useRef<WebViewMethods>(null);
 
   function handleGo(u?: string) {
     if (webviewRef.current) {
-      // @ts-ignore
       webviewRef.current.loadURL(u || url);
     }
   }
 
-  useEffect(() => {
-    if (webviewRef.current) {
-      const onLoadCommit = (evt) => {
-        if (evt.isMainFrame) {
-          setUrl(evt.url);
-        }
-      };
-
-      webviewRef.current.addEventListener('load-commit', onLoadCommit);
-
-      return () => {
-        if (webviewRef.current) {
-          webviewRef.current.removeEventListener('load-commit', onLoadCommit);
-        }
-      }
+  function handleLoadCommit(u: string, isMainFrame: boolean) {
+    if (isMainFrame) {
+      setUrl(u);
     }
-
-    return () => {};
-  }, [])
+  }
 
   return (
     <div className="flex flex-col w-[100vw] h-[100vh]">
@@ -47,9 +33,10 @@ function App() {
           Go
         </Button>
       </div>
-      <webview
+      <WebView
         src="https://google.com/"
-        className="w-full grow h-full"
+        className="w-full h-full grow"
+        onLoadCommit={handleLoadCommit}
         ref={webviewRef}
       />
     </div>
