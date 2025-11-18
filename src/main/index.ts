@@ -10,10 +10,18 @@ const Store = require('electron-store').default;
 const store = new Store();
 
 function createWindow(): void {
+  const isMac = process.platform === 'darwin';
+
   const mainWindow = new BrowserWindow({
     width: 1200,
     height: 720,
     show: false,
+    ...(isMac ? {
+      titleBarStyle: 'hidden',
+      trafficLightPosition: { x: 20, y: 20 }
+    } : {
+      frame: false
+    }),
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
@@ -28,6 +36,26 @@ function createWindow(): void {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show();
+  });
+
+  ipcMain.handle('is-maximized', () => {
+    return mainWindow.isMaximized();
+  });
+
+  ipcMain.handle('maximize', () => {
+    mainWindow.maximize();
+  });
+
+  ipcMain.handle('minimize', () => {
+    mainWindow.minimize();
+  });
+
+  ipcMain.handle('unmaximize', () => {
+    mainWindow.unmaximize();
+  });
+
+  ipcMain.handle('close', () => {
+    mainWindow.close();
   });
 
   mainWindow.webContents.setWindowOpenHandler((details) => {

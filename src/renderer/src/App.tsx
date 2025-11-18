@@ -12,7 +12,9 @@ import { CreateNewTab, Tab } from '@renderer/lib/tab';
 import { Space } from '@renderer/lib/space';
 import WebView from '@renderer/components/WebView';
 import useNewTabModal from '@renderer/components/modals/NewTabModal';
-import { Card } from '@heroui/react';
+import { Button, Card } from '@heroui/react';
+import { LuMaximize, LuMinimize, LuMinus, LuX } from 'react-icons/lu';
+import { isMac } from '@react-aria/utils';
 
 function App() {
   const [browser, setBrowser] = useState<Browser>(CreateNewBrowser());
@@ -21,6 +23,8 @@ function App() {
   const [currentSpace, setCurrentSpace] = useState<Space | null>(null);
   const [allTabs, setAllTabs] = useState<Tab[]>([]);
   const [openNewTabModal, NewTabModal] = useNewTabModal(handleNewTab);
+  const [showWindowButtons, setShowWindowButtons] = useState<boolean>(false);
+  const [isMaximized, setIsMaximized] = useState<boolean>(false);
 
   function loadBrowserData() {
     window.store.get('browser').then((data) => {
@@ -213,9 +217,16 @@ function App() {
     }
   }
 
+  function getIsMaximized() {
+    window.api.isMaximized().then((m) => {
+      setIsMaximized(m);
+    });
+  }
+
   useEffect(() => {
     // window.store.delete("browser");
     loadBrowserData();
+    getIsMaximized();
   }, []);
 
   useEffect(() => {
@@ -260,7 +271,7 @@ function App() {
   return (
     <div className="flex flex-col w-[100vw] h-[100vh]">
       {NewTabModal}
-      <div className="flex flex-row w-fulls h-full grow p-2 gap-2">
+      <div className="flex flex-row w-fulls h-full grow gap-2">
         <BrowserSideBar
           showSideBar={browser.showSideBar}
           currentTab={currentTab}
@@ -272,24 +283,68 @@ function App() {
           openNewTabModal={openNewTabModal}
           onTabClose={handleTabClose}
           onTabSelect={handleSelectTab}
+          className="p-2 pr-0"
         />
 
         {/* WebView */}
         {
           allTabs.map((tab) => (
-            <Card
+            <div
               key={tab.id}
-              className={`w-full h-full grow overflow-hidden ${tab.id === browser.currentTabId ? '' : 'hidden'}`}
+              className={`flex flex-col w-full h-full select-none grow ${tab.id === browser.currentTabId ? '' : 'hidden'}`}
             >
-              <WebView
-                src={tab.src}
-                ref={tab.webview}
-                className="w-full h-full"
-                onPageFaviconUpdated={(favicons) => handleFaviconsUpdate(favicons, tab.id)}
-                onPageTitleUpdated={(title) => handleTitleUpdate(title, tab.id)}
-                onLoadCommit={(url, isMainFrame) => handleLoadCommit(url, isMainFrame, tab.id)}
-              />
-            </Card>
+              {
+                isMac() ? (
+                  <div className="w-full h-2"/>
+                ) : (
+                  <div
+                    className={`
+                      w-full h-2 hover:h-10 transition-all duration-300 ease-in-out
+                      flex flex-row justify-end items-center
+                    `}
+                    onMouseEnter={() => setShowWindowButtons(true)}
+                    onMouseLeave={() => setShowWindowButtons(false)}
+                  >
+                    <div
+                      className={`flex flex-row h-full ${showWindowButtons ? '' : 'hidden'}`}
+                    >
+                      <Button isIconOnly variant="light" onPress={window.api.minimize}>
+                        <LuMinus size={20}/>
+                      </Button>
+                      {
+                        isMaximized ? (
+                          <Button isIconOnly variant="light" onPress={() => window.api.unmaximize().then(() => getIsMaximized())}>
+                            <LuMinimize size={20}/>
+                          </Button>
+                        ) : (
+                          <Button isIconOnly variant="light" onPress={() => window.api.maximize().then(() => getIsMaximized())}>
+                            <LuMaximize size={20}/>
+                          </Button>
+                        )
+                      }
+                      <Button isIconOnly variant="light" color="danger" onPress={window.api.close}>
+                        <LuX size={20}/>
+                      </Button>
+                    </div>
+                  </div>
+                )
+              }
+
+              <div className="w-full h-full grow p-2 pl-0 pt-0">
+                <Card
+                  className={"w-full h-full overflow-hidden"}
+                >
+                  <WebView
+                    src={tab.src}
+                    ref={tab.webview}
+                    className="w-full h-full"
+                    onPageFaviconUpdated={(favicons) => handleFaviconsUpdate(favicons, tab.id)}
+                    onPageTitleUpdated={(title) => handleTitleUpdate(title, tab.id)}
+                    onLoadCommit={(url, isMainFrame) => handleLoadCommit(url, isMainFrame, tab.id)}
+                  />
+                </Card>
+              </div>
+            </div>
           ))
         }
       </div>

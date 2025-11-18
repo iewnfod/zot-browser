@@ -1,10 +1,15 @@
-import { contextBridge } from 'electron'
-import { electronAPI } from '@electron-toolkit/preload'
+import { contextBridge } from 'electron';
+import { electronAPI } from '@electron-toolkit/preload';
 
 const { ipcRenderer } = require('electron');
 
 const api = {
   getFavicon: (url: string) => ipcRenderer.invoke('get-favicon', url),
+  isMaximized: () => ipcRenderer.invoke('is-maximized'),
+  maximize: () => ipcRenderer.invoke('maximize'),
+  minimize: () => ipcRenderer.invoke('minimize'),
+  unmaximize: () => ipcRenderer.invoke('unmaximize'),
+  close: () => ipcRenderer.invoke('close'),
 };
 
 const storeApi = {

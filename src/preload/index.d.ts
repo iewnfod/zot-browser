@@ -5,6 +5,11 @@ declare global {
     electron: ElectronAPI
     api: {
       getFavicon: (url: string) => Promise<string>,
+      isMaximized: () => Promise<boolean>,
+      maximize: () => Promise<void>,
+      minimize: () => Promise<void>,
+      unmaximize: () => Promise<void>,
+      close: () => Promise<void>,
     },
     store: {
       get: (key: string) => Promise<any>,
