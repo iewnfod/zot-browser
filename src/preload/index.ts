@@ -8,11 +8,11 @@ const api = {
 };
 
 const storeApi = {
-  get: (key) => ipcRenderer.invoke('store-get', key),
-  set: (key, value) => ipcRenderer.invoke('store-set', key, value),
-  has: (key) => ipcRenderer.invoke('store-has', key),
-  delete: (key) => ipcRenderer.invoke('store-delete', key),
-}
+  get: (key: string): Promise<any> => ipcRenderer.invoke('store-get', key),
+  set: (key: string, value: any): Promise<boolean> => ipcRenderer.invoke('store-set', key, value),
+  has: (key: string): Promise<boolean> => ipcRenderer.invoke('store-has', key),
+  delete: (key: string): Promise<any> => ipcRenderer.invoke('store-delete', key),
+};
 
 if (process.contextIsolated) {
   try {

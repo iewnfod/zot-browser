@@ -14,9 +14,22 @@ export function NewTabModalContent({
   onOpenChange: (isOpen: boolean) => void;
 }) {
   const [input, setInput] = useState('');
-  const [options, setOptions] = useState<SearchOption[]>([]);
+  const [options, _setOptions] = useState<SearchOption[]>([]);
   const [selectOptionIndex, setSelectOptionIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [shouldShowOptions, setShouldShowOptions] = useState<boolean>(false);
+
+  function setOptions(options: SearchOption[]) {
+    if (options.length === 0) {
+      setShouldShowOptions(false);
+      setTimeout(() => {
+        _setOptions(options);
+      }, 300);
+    } else {
+      setShouldShowOptions(true);
+      _setOptions(options);
+    }
+  }
 
   function handleKeyDown(e: KeyboardEvent, onClose: () => void) {
     switch (e.key) {
@@ -115,6 +128,7 @@ export function NewTabModalContent({
       onOpenChange={onOpenChange}
       placement="center"
       hideCloseButton
+      className="translate-y-[-10vh]"
     >
       <ModalContent>
         {(onClose) => (
@@ -134,36 +148,37 @@ export function NewTabModalContent({
               }}
             />
 
-            {options.length !== 0 ? (
-              <>
-                <Divider/>
+            <div className={`
+              w-full h-auto transition-all ease-in-out duration-300 overflow-hidden
+              ${shouldShowOptions ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}
+            `}>
+              <Divider/>
 
-                <div className="flex flex-col gap-1 w-full p-2">
-                  {
-                    options.map((option, index) => (
-                      <Card
-                        className="w-full select-none"
-                        key={index}
-                        classNames={{
-                          base: `shadow-none`
-                        }}
-                      >
-                        <CardBody className={`${selectOptionIndex === index ? 'bg-default-200' : ''}`}>
-                          <Image
-                            alt=""
-                            src={option.icon}
-                          />
-                          <div className="flex flex-col">
-                            <p className="text-md">{option.title}</p>
-                            <p className="text-small text-default-500">{option.description}</p>
-                          </div>
-                        </CardBody>
-                      </Card>
-                    ))
-                  }
-                </div>
-              </>
-            ) : null}
+              <div className="flex flex-col gap-1 w-full p-2">
+                {
+                  options.map((option, index) => (
+                    <Card
+                      className="w-full select-none"
+                      key={index}
+                      classNames={{
+                        base: `shadow-none`
+                      }}
+                    >
+                      <CardBody className={`${selectOptionIndex === index ? 'bg-default-200' : ''}`}>
+                        <Image
+                          alt=""
+                          src={option.icon}
+                        />
+                        <div className="flex flex-col">
+                          <p className="text-md">{option.title}</p>
+                          <p className="text-small text-default-500">{option.description}</p>
+                        </div>
+                      </CardBody>
+                    </Card>
+                  ))
+                }
+              </div>
+            </div>
           </div>
         )}
       </ModalContent>

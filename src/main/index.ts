@@ -11,7 +11,7 @@ const store = new Store();
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
-    width: 1100,
+    width: 1200,
     height: 720,
     show: false,
     autoHideMenuBar: true,

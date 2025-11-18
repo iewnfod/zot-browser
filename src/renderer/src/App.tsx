@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { debounce } from '@renderer/lib/utils';
-import { Browser, CreateNewBrowser, deserializeBrowser, SerializableBrowser } from '@renderer/lib/browser';
+import {
+  Browser,
+  CreateNewBrowser,
+  deserializeBrowser,
+  SerializableBrowser,
+  serializeBrowser
+} from '@renderer/lib/browser';
 import BrowserSideBar from '@renderer/components/SideBar';
 import { CreateNewTab, Tab } from '@renderer/lib/tab';
 import { Space } from '@renderer/lib/space';
@@ -214,7 +220,7 @@ function App() {
 
   useEffect(() => {
     if (isInitialized && browser) {
-      debouncedSave(deserializeBrowser(browser));
+      debouncedSave(serializeBrowser(browser));
     }
   }, [browser, isInitialized]);
 
@@ -224,23 +230,22 @@ function App() {
       setCurrentSpace(space);
 
       if (browser.currentTabId) {
+        const tabData = findTabById(browser.currentTabId);
+        if (!tabData) return;
 
-      }
-      const tabData = findTabById(browser.currentTabId);
-      if (!tabData) return;
+        let tab: Tab | null = null;
+        if (!Array.isArray(tabData)) {
+          tab = tabData;
+        } else {
+          const [t, _space, _isPinned] = tabData;
+          tab = t;
+        }
 
-      let tab: Tab | null = null;
-      if (!Array.isArray(tabData)) {
-        tab = tabData;
-      } else {
-        const [t, _space, _isPinned] = tabData;
-        tab = t;
-      }
-
-      if (tab) {
-        setCurrentTab(tab);
-      } else {
-        setCurrentTab(null);
+        if (tab) {
+          setCurrentTab(tab);
+        } else {
+          setCurrentTab(null);
+        }
       }
     }
   }, [browser]);

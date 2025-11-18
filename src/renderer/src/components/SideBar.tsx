@@ -28,6 +28,40 @@ export default function BrowserSideBar({
   onTabClose: (tabId: string) => void;
   onTabSelect: (tabId: string) => void;
 }) {
+  function handleGoBack() {
+    if (currentTab && currentTab.webview.current) {
+      currentTab.webview.current.goBack();
+    }
+  }
+
+  function handleGoForward() {
+    if (currentTab && currentTab.webview.current) {
+      currentTab.webview.current.goForward();
+    }
+  }
+
+  function handleReload() {
+    if (currentTab && currentTab.webview.current) {
+      currentTab.webview.current.reload();
+    }
+  }
+
+  function canGoForward() {
+    if (currentTab && currentTab.webview.current) {
+      return currentTab.webview.current.canGoForward();
+    } else {
+      return false;
+    }
+  }
+
+  function canGoBack() {
+    if (currentTab && currentTab.webview.current) {
+      return currentTab.webview.current.canGoBack();
+    } else {
+      return false;
+    }
+  }
+
   return (
     <div className="flex flex-col h-full gap-2 min-w-64 w-[15vw]">
       {/* Actions */}
@@ -58,13 +92,13 @@ export default function BrowserSideBar({
         </div>
 
         <div className="flex flex-row justify-end items-center">
-          <Button variant="light" isIconOnly size="sm" disabled={currentTab ? currentTab.canGoBack : false}>
+          <Button variant="light" isIconOnly size="sm" isDisabled={!canGoBack()} onPress={handleGoBack}>
             <LuMoveLeft size={20}/>
           </Button>
-          <Button variant="light" isIconOnly size="sm" disabled={currentTab ? currentTab.canGoForward : false}>
+          <Button variant="light" isIconOnly size="sm" isDisabled={!canGoForward()} onPress={handleGoForward}>
             <LuMoveRight size={20}/>
           </Button>
-          <Button variant="light" isIconOnly size="sm">
+          <Button variant="light" isIconOnly size="sm" onPress={handleReload}>
             <TbReload size={20}/>
           </Button>
 
@@ -104,6 +138,7 @@ export default function BrowserSideBar({
               key={tab.id}
               onTabClose={() => onTabClose(tab.id)}
               onSelect={() => onTabSelect(tab.id)}
+              isSelected={currentTab ? currentTab.id === tab.id : false}
             />
           ))
         }
@@ -135,6 +170,7 @@ export default function BrowserSideBar({
               key={tab.id}
               onTabClose={() => onTabClose(tab.id)}
               onSelect={() => onTabSelect(tab.id)}
+              isSelected={currentTab ? currentTab.id === tab.id : false}
             />
           ))
         }
