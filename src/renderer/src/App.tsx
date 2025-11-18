@@ -1,19 +1,31 @@
-import { useState } from 'react';
-import { newTab, Tab } from '@renderer/lib/tab';
+import { useEffect, useMemo, useState } from 'react';
+import { CreateNewTab, deserializeTab, SerializableTab, serializeTab, Tab } from '@renderer/lib/tab';
 import { Button, ButtonGroup, Input } from '@heroui/react';
 import WebView from '@renderer/components/WebView';
 import { LuX } from 'react-icons/lu';
+import { debounce } from '@renderer/utils';
 
 function App() {
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [selectedTabId, setSelectedTabId] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState<boolean>(false);
+
+  function loadTabFromStore() {
+    window.store.get('tabs').then((t: SerializableTab[]) => {
+      if (t && t.length > 0) {
+        const storedTabs = t.map((t) => deserializeTab(t));
+        setTabs(storedTabs);
+      }
+      setIsInitialized(true);
+    });
+  }
 
   function handleSelectTab(id: string) {
     setSelectedTabId(id);
   }
 
   function handleNewTab() {
-    const tab = newTab("https://google.com/");
+    const tab = CreateNewTab("https://google.com/");
     setTabs([...tabs, tab]);
     setSelectedTabId(tab.id);
   }
@@ -28,7 +40,7 @@ function App() {
 
   function handleFaviconsUpdate(favicons: string[], id: string) {
     if (favicons.length > 0) {
-      window.electron.ipcRenderer.invoke('get-favicon', favicons[0]).then((data: string) => {
+      window.api.getFavicon(favicons[0]).then((data: string) => {
         setTabs((tabs) => {
           return tabs.map(tab => tab.id === id ? { ...tab, favicon: data } : tab);
         });
@@ -63,12 +75,31 @@ function App() {
     return selectedTab ? selectedTab.url : "";
   }
 
+  const debouncedSave = useMemo(
+    () => debounce((tabsToSave: SerializableTab[]) => {
+      console.log("Debounced saving to store:", tabsToSave);
+      window.store.set('tabs', tabsToSave);
+    }, 500),
+    []
+  );
+
+  useEffect(() => {
+    loadTabFromStore();
+  }, []);
+
+  useEffect(() => {
+    if (isInitialized && tabs) {
+      const serializedTabs = tabs.map((tab) => serializeTab(tab));
+      debouncedSave(serializedTabs);
+    }
+  }, [tabs, isInitialized]);
+
   return (
     <div className="flex flex-col w-[100vw] h-[100vh]">
-      <div className="flex flex-row w-full h-full grow p-2 gap-2">
+      <div className="flex flex-row w-fulls h-full grow p-2 gap-2">
         <div className="flex flex-col h-full gap-1 min-w-[20vw]">
           <Input
-            placeholder="url"
+            placeholder="Search..."
             value={getTabUrlById(selectedTabId)}
           />
           <Button onPress={handleNewTab} variant="flat">
@@ -100,7 +131,7 @@ function App() {
               key={tab.id}
               src={tab.src}
               ref={tab.webview}
-              className={`w-full h-full grow ${tab.id === selectedTabId ? '' : 'hidden'}`}
+              className={`w-full h-full grow border-r-3 ${tab.id === selectedTabId ? '' : 'hidden'}`}
               onPageFaviconUpdated={(favicons) => handleFaviconsUpdate(favicons, tab.id)}
               onPageTitleUpdated={(title) => handleTitleUpdate(title, tab.id)}
               onLoadCommit={(url, isMainFrame) => handleLoadCommit(url, isMainFrame, tab.id)}

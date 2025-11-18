@@ -6,6 +6,9 @@ import * as http from 'node:http';
 import * as https from 'node:https';
 import { Buffer } from 'node:buffer';
 
+const Store = require('electron-store').default;
+const store = new Store();
+
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
     width: 1100,
@@ -19,11 +22,12 @@ function createWindow(): void {
       webviewTag: true,
       nodeIntegration: false,
       contextIsolation: true,
+      spellcheck: false
     }
   });
 
   mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
+    mainWindow.show();
   });
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -67,6 +71,23 @@ app.whenReady().then(() => {
         reject(err);
       });
     });
+  });
+
+  ipcMain.handle('store-get', async (_, key) => {
+    return store.get(key);
+  });
+
+  ipcMain.handle('store-set', async (_, key, value) => {
+    store.set(key, value);
+    return true;
+  });
+
+  ipcMain.handle('store-has', async (_, key) => {
+    return store.has(key);
+  });
+
+  ipcMain.handle('store-delete', async (_, key) => {
+    return store.delete(key);
   });
 
   createWindow();
