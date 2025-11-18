@@ -2,11 +2,14 @@ import { app, shell, BrowserWindow, ipcMain } from 'electron';
 import { join } from 'path';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import icon from '../../resources/icon.png?asset';
+import * as http from 'node:http';
+import * as https from 'node:https';
+import { Buffer } from 'node:buffer';
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
-    width: 900,
-    height: 670,
+    width: 1100,
+    height: 720,
     show: false,
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
@@ -15,7 +18,7 @@ function createWindow(): void {
       sandbox: false,
       webviewTag: true,
       nodeIntegration: false,
-      contextIsolation: true
+      contextIsolation: true,
     }
   });
 
@@ -43,6 +46,28 @@ app.whenReady().then(() => {
   });
 
   ipcMain.on('ping', () => console.log('pong'));
+
+  ipcMain.handle('get-favicon', async (_event, url: string) => {
+    return new Promise((resolve, reject) => {
+      const protocol = url.startsWith('https') ? https : http;
+      protocol.get(url, (response) => {
+        if (response.statusCode !== 200) {
+          reject(new Error(`Failed to fetch favicon. HTTP status code ${response.statusCode}`));
+          return;
+        }
+        const chunks: any[] = [];
+        response.on('data', (chunk) => {chunks.push(chunk);});
+        response.on('end', () => {
+          const buffer = Buffer.concat(chunks);
+          const contentType = response.headers['content-type'] || 'image/x-icon';
+          const dataUrl = `data:${contentType};base64,${buffer.toString('base64')}`;
+          resolve(dataUrl);
+        });
+      }).on('error', (err) => {
+        reject(err);
+      });
+    });
+  });
 
   createWindow();
 
