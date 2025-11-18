@@ -1,141 +1,290 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CreateNewTab, deserializeTab, SerializableTab, serializeTab, Tab } from '@renderer/lib/tab';
-import { Button, ButtonGroup, Input } from '@heroui/react';
+import { debounce } from '@renderer/lib/utils';
+import { Browser, CreateNewBrowser, deserializeBrowser, SerializableBrowser } from '@renderer/lib/browser';
+import BrowserSideBar from '@renderer/components/SideBar';
+import { CreateNewTab, Tab } from '@renderer/lib/tab';
+import { Space } from '@renderer/lib/space';
 import WebView from '@renderer/components/WebView';
-import { LuX } from 'react-icons/lu';
-import { debounce } from '@renderer/utils';
+import useNewTabModal from '@renderer/components/modals/NewTabModal';
+import { Card } from '@heroui/react';
 
 function App() {
-  const [tabs, setTabs] = useState<Tab[]>([]);
-  const [selectedTabId, setSelectedTabId] = useState<string | null>(null);
+  const [browser, setBrowser] = useState<Browser>(CreateNewBrowser());
   const [isInitialized, setIsInitialized] = useState<boolean>(false);
+  const [currentTab, setCurrentTab] = useState<Tab | null>(null);
+  const [currentSpace, setCurrentSpace] = useState<Space | null>(null);
+  const [allTabs, setAllTabs] = useState<Tab[]>([]);
+  const [openNewTabModal, NewTabModal] = useNewTabModal(handleNewTab);
 
-  function loadTabFromStore() {
-    window.store.get('tabs').then((t: SerializableTab[]) => {
-      if (t && t.length > 0) {
-        const storedTabs = t.map((t) => deserializeTab(t));
-        setTabs(storedTabs);
+  function loadBrowserData() {
+    window.store.get('browser').then((data) => {
+      if (data) {
+        console.log('Load Browser', data);
+        setBrowser(deserializeBrowser(data));
       }
       setIsInitialized(true);
     });
   }
 
-  function handleSelectTab(id: string) {
-    setSelectedTabId(id);
-  }
-
-  function handleNewTab() {
-    const tab = CreateNewTab("https://google.com/");
-    setTabs([...tabs, tab]);
-    setSelectedTabId(tab.id);
-  }
-
-  function handleLoadCommit(url: string, isMainFrame: boolean, id: string) {
-    if (isMainFrame) {
-      setTabs((tabs) => {
-        return tabs.map(tab => tab.id === id ? { ...tab, url } : tab);
-      });
-    }
-  }
-
-  function handleFaviconsUpdate(favicons: string[], id: string) {
-    if (favicons.length > 0) {
-      window.api.getFavicon(favicons[0]).then((data: string) => {
-        setTabs((tabs) => {
-          return tabs.map(tab => tab.id === id ? { ...tab, favicon: data } : tab);
-        });
-      });
-    }
-  }
-
-  function handleTitleUpdate(title: string, id: string) {
-    setTabs((tabs) => {
-      return tabs.map(tab => tab.id === id ? { ...tab, name: title } : tab);
-    });
-  }
-
-  function handleDeleteTab(id: string) {
-    setTabs((tabs) => {
-      const newTabs = tabs.filter(tab => tab.id !== id);
-
-      if (id === selectedTabId) {
-        const remainingTab = newTabs[newTabs.length - 1];
-        setSelectedTabId(remainingTab ? remainingTab.id : null);
-      }
-
-      return newTabs;
-    });
-  }
-
-  function getTabUrlById(id: string | null) {
-    if (id === null) {
-      return "";
-    }
-    const selectedTab = tabs.find(tab => tab.id === id);
-    return selectedTab ? selectedTab.url : "";
-  }
-
   const debouncedSave = useMemo(
-    () => debounce((tabsToSave: SerializableTab[]) => {
-      console.log("Debounced saving to store:", tabsToSave);
-      window.store.set('tabs', tabsToSave);
+    () => debounce((browserToSave: SerializableBrowser) => {
+      console.log("Debounced saving to store:", browserToSave);
+      window.store.set('browser', browserToSave);
     }, 500),
     []
   );
 
+  function findTabById(id: string | undefined): [Tab, Space, boolean] | Tab | null {
+    if (!id) return null;
+
+    let tab: Tab | null = null;
+
+    // check is current tab
+    if (currentSpace && currentTab && currentTab.id === id) {
+      return [currentTab, currentSpace, currentSpace.pinnedTabs.find((t) => t.id === id) !== undefined];
+    }
+
+    // find in favorite
+    tab = browser.favoriteTabs.find((t) => t.id === id) || null;
+    if (tab) return tab;
+
+    // find in current space
+    if (currentSpace) {
+      tab = currentSpace.pinnedTabs.find((t) => t.id === id) || null;
+      if (tab) return [tab, currentSpace, true];
+      tab = currentSpace.tabs.find((t) => t.id === id) || null;
+      if (tab) return [tab, currentSpace, false];
+    }
+
+    // find in other space
+    for (let i = 0; i < browser.spaces.length; i ++) {
+      tab = browser.spaces[i].pinnedTabs.find((t) => t.id === id) || null;
+      if (tab) return [tab, browser.spaces[i], true];
+      tab = browser.spaces[i].tabs.find((t) => t.id === id) || null;
+      if (tab) return [tab, browser.spaces[i], false];
+    }
+
+    // final
+    return null;
+  }
+
+  function updateTabProperty(tabId: string, updates: Partial<Tab>) {
+    const tabData = findTabById(tabId);
+    if (!tabData) return;
+
+    setBrowser(prevBrowser => {
+      const newBrowser = {...prevBrowser};
+      // in Favorite Tabs
+      if (!Array.isArray(tabData)) {
+        newBrowser.favoriteTabs = newBrowser.favoriteTabs.map(tab =>
+          tab.id === tabId ? { ...tab, ...updates } : tab
+        );
+        return newBrowser;
+      }
+      // in Space
+      const [_tab, space, isPinned] = tabData;
+
+      const spaceIndex = newBrowser.spaces.findIndex(s => s.id === space.id);
+      if (spaceIndex === -1) return prevBrowser;
+
+      if (isPinned) {
+        // 更新固定标签页
+        newBrowser.spaces[spaceIndex].pinnedTabs = newBrowser.spaces[spaceIndex].pinnedTabs.map(t =>
+          t.id === tabId ? { ...t, ...updates } : t
+        );
+      } else {
+        // 更新普通标签页
+        newBrowser.spaces[spaceIndex].tabs = newBrowser.spaces[spaceIndex].tabs.map(t =>
+          t.id === tabId ? { ...t, ...updates } : t
+        );
+      }
+      return newBrowser;
+    });
+  }
+
+  function handleFaviconsUpdate(favicons: string[], tabId: string) {
+    if (favicons && favicons.length > 0) {
+      window.api.getFavicon(favicons[0]).then((data) => {
+        updateTabProperty(tabId, { favicon: data });
+      });
+    }
+  }
+
+  function handleTitleUpdate(title: string, tabId: string) {
+    updateTabProperty(tabId, { name: title });
+  }
+
+  function handleLoadCommit(url: string, isMainFrame: boolean, tabId: string) {
+    if (isMainFrame) {
+      updateTabProperty(tabId, { url });
+    }
+  }
+
+  function handleNewTab(url: string) {
+    console.log('handleNewTab called with url:', url);
+    const newTab = CreateNewTab(url);
+    console.log('New tab created with id:', newTab.id);
+    if (currentSpace) {
+      console.log('Current space:', currentSpace.id, currentSpace.name);
+      setBrowser(prevBrowser => {
+        const newBrowser = { ...prevBrowser };
+        const spaceIndex = newBrowser.spaces.findIndex(s => s.id === currentSpace.id);
+        console.log('Space index:', spaceIndex);
+
+        if (spaceIndex === -1) return prevBrowser;
+
+        console.log('Tabs before:', newBrowser.spaces[spaceIndex].tabs.length);
+
+        newBrowser.spaces[spaceIndex].tabs = [
+          ...newBrowser.spaces[spaceIndex].tabs,
+          newTab
+        ];
+
+        console.log('Tabs after:', newBrowser.spaces[spaceIndex].tabs.length);
+
+        newBrowser.currentTabId = newTab.id;
+        newBrowser.currentSpaceId = currentSpace.id;
+
+        return newBrowser;
+      });
+    }
+  }
+
+  function handleTabClose(tabId: string) {
+    const tabData = findTabById(tabId);
+    if (!tabData) return;
+
+    if (!Array.isArray(tabData)) {
+      const index = browser.favoriteTabs.findIndex(t => t.id === tabId);
+      if (index !== -1) {
+        setBrowser(prevBrowser => {
+          const newBrowser = {...prevBrowser};
+          newBrowser.favoriteTabs.splice(index, 1);
+          return newBrowser;
+        });
+      }
+    } else {
+      const [_tab, space, isPinned] = tabData;
+      const spaceIndex = browser.spaces.findIndex(s => s.id === space.id);
+      if (spaceIndex === -1) return;
+      if (isPinned) {
+        const tabIndex = browser.spaces[spaceIndex].pinnedTabs.findIndex(t => t.id === tabId);
+        if (tabIndex === -1) return;
+        setBrowser(prevBrowser => {
+          const newBrowser = {...prevBrowser};
+          newBrowser.spaces[spaceIndex].pinnedTabs.splice(tabIndex, 1);
+          return newBrowser;
+        });
+      } else {
+        const tabIndex = browser.spaces[spaceIndex].tabs.findIndex(t => t.id === tabId);
+        if (tabIndex === -1) return;
+        setBrowser(prevBrowser => {
+          const newBrowser = {...prevBrowser};
+          newBrowser.spaces[spaceIndex].tabs.splice(tabIndex, 1);
+          return newBrowser;
+        });
+      }
+    }
+  }
+
+  function handleSelectTab(tabId: string) {
+    const tabData = findTabById(tabId);
+    if (!tabData) return;
+    if (!Array.isArray(tabData)) {
+      setBrowser(prevBrowser => {
+        const newBrowser = {...prevBrowser};
+        newBrowser.currentTabId = tabId;
+        return newBrowser;
+      });
+    } else {
+      const [_tab, space, _isPinned] = tabData;
+      setBrowser(prevBrowser => {
+        const newBrowser = {...prevBrowser};
+        newBrowser.currentTabId = tabId;
+        newBrowser.currentSpaceId = space.id;
+        return newBrowser;
+      });
+    }
+  }
+
   useEffect(() => {
-    loadTabFromStore();
+    // window.store.delete("browser");
+    loadBrowserData();
   }, []);
 
   useEffect(() => {
-    if (isInitialized && tabs) {
-      const serializedTabs = tabs.map((tab) => serializeTab(tab));
-      debouncedSave(serializedTabs);
+    if (isInitialized && browser) {
+      debouncedSave(deserializeBrowser(browser));
     }
-  }, [tabs, isInitialized]);
+  }, [browser, isInitialized]);
+
+  useEffect(() => {
+    const space = browser.spaces.find((s) => s.id === browser.currentSpaceId);
+    if (space) {
+      setCurrentSpace(space);
+
+      if (browser.currentTabId) {
+
+      }
+      const tabData = findTabById(browser.currentTabId);
+      if (!tabData) return;
+
+      let tab: Tab | null = null;
+      if (!Array.isArray(tabData)) {
+        tab = tabData;
+      } else {
+        const [t, _space, _isPinned] = tabData;
+        tab = t;
+      }
+
+      if (tab) {
+        setCurrentTab(tab);
+      } else {
+        setCurrentTab(null);
+      }
+    }
+  }, [browser]);
+
+  useEffect(() => {
+    const tabs = browser.favoriteTabs
+      .concat(currentSpace ? currentSpace.pinnedTabs : [])
+      .concat(currentSpace ? currentSpace.tabs : []);
+    setAllTabs(tabs);
+  }, [browser, currentSpace]);
 
   return (
     <div className="flex flex-col w-[100vw] h-[100vh]">
+      {NewTabModal}
       <div className="flex flex-row w-fulls h-full grow p-2 gap-2">
-        <div className="flex flex-col h-full gap-1 min-w-[20vw]">
-          <Input
-            placeholder="Search..."
-            value={getTabUrlById(selectedTabId)}
-          />
-          <Button onPress={handleNewTab} variant="flat">
-            New Tab
-          </Button>
-          {
-            tabs.map((tab) => (
-              <ButtonGroup variant="flat" key={tab.id}>
-                <Button
-                  onPress={() => handleSelectTab(tab.id)}
-                  variant="flat"
-                  className="w-full"
-                  startContent={<img src={tab.favicon} alt="" className="h-[50%]"/>}
-                >
-                  <p className="w-full text-start overflow-hidden whitespace-nowrap text-ellipsis">
-                    {tab.name || tab.url}
-                  </p>
-                </Button>
-                <Button isIconOnly onPress={() => handleDeleteTab(tab.id)}>
-                  <LuX/>
-                </Button>
-              </ButtonGroup>
-            ))
-          }
-        </div>
+        <BrowserSideBar
+          showSideBar={browser.showSideBar}
+          currentTab={currentTab}
+          favoriteTabs={browser.favoriteTabs}
+          pinnedTabs={currentSpace ? currentSpace.pinnedTabs : []}
+          tabs={currentSpace ? currentSpace.tabs : []}
+          spaceIcon={currentSpace ? currentSpace.icon : ""}
+          spaceName={currentSpace ? currentSpace.name : "Default"}
+          openNewTabModal={openNewTabModal}
+          onTabClose={handleTabClose}
+          onTabSelect={handleSelectTab}
+        />
+
+        {/* WebView */}
         {
-          tabs.map((tab) => (
-            <WebView
+          allTabs.map((tab) => (
+            <Card
               key={tab.id}
-              src={tab.src}
-              ref={tab.webview}
-              className={`w-full h-full grow border-r-3 ${tab.id === selectedTabId ? '' : 'hidden'}`}
-              onPageFaviconUpdated={(favicons) => handleFaviconsUpdate(favicons, tab.id)}
-              onPageTitleUpdated={(title) => handleTitleUpdate(title, tab.id)}
-              onLoadCommit={(url, isMainFrame) => handleLoadCommit(url, isMainFrame, tab.id)}
-            />
+              className={`w-full h-full grow overflow-hidden ${tab.id === browser.currentTabId ? '' : 'hidden'}`}
+            >
+              <WebView
+                src={tab.src}
+                ref={tab.webview}
+                className="w-full h-full"
+                onPageFaviconUpdated={(favicons) => handleFaviconsUpdate(favicons, tab.id)}
+                onPageTitleUpdated={(title) => handleTitleUpdate(title, tab.id)}
+                onLoadCommit={(url, isMainFrame) => handleLoadCommit(url, isMainFrame, tab.id)}
+              />
+            </Card>
           ))
         }
       </div>

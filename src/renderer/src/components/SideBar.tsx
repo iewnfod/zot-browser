@@ -1,0 +1,144 @@
+import { Button, Divider, Dropdown, DropdownItem, DropdownMenu, DropdownTrigger, Input } from '@heroui/react';
+import { LuMenu, LuMoveLeft, LuMoveRight, LuPanelLeftClose, LuPanelLeftOpen, LuPlus } from 'react-icons/lu';
+import { TbReload } from 'react-icons/tb';
+import { Tab } from '@renderer/lib/tab';
+import FavoriteTabCard from '@renderer/components/FavoriteTabCard';
+import TabRow from '@renderer/components/TabRow';
+
+export default function BrowserSideBar({
+  showSideBar,
+  currentTab,
+  favoriteTabs,
+  pinnedTabs,
+  tabs,
+  spaceName,
+  spaceIcon,
+  openNewTabModal,
+  onTabClose,
+  onTabSelect,
+} : {
+  showSideBar: boolean;
+  currentTab: Tab | null;
+  favoriteTabs: Tab[];
+  pinnedTabs: Tab[];
+  tabs: Tab[];
+  spaceName: string;
+  spaceIcon: string;
+  openNewTabModal: () => void;
+  onTabClose: (tabId: string) => void;
+  onTabSelect: (tabId: string) => void;
+}) {
+  return (
+    <div className="flex flex-col h-full gap-2 min-w-64 w-[15vw]">
+      {/* Actions */}
+      <div className="flex flex-row justify-between items-center">
+        {/* More, Go Back, Go Forward, Reload */}
+        <div className="flex flex-row justify-start items-center">
+          <Dropdown>
+            <DropdownTrigger>
+              <Button variant="light" isIconOnly size="sm">
+                <LuMenu size={20}/>
+              </Button>
+            </DropdownTrigger>
+            <DropdownMenu>
+              <DropdownItem key="more">More Settings Here</DropdownItem>
+            </DropdownMenu>
+          </Dropdown>
+          {
+            showSideBar ? (
+              <Button variant="light" isIconOnly size="sm">
+                <LuPanelLeftClose size={20}/>
+              </Button>
+            ) : (
+              <Button variant="light" isIconOnly size="sm">
+                <LuPanelLeftOpen size={20}/>
+              </Button>
+            )
+          }
+        </div>
+
+        <div className="flex flex-row justify-end items-center">
+          <Button variant="light" isIconOnly size="sm" disabled={currentTab ? currentTab.canGoBack : false}>
+            <LuMoveLeft size={20}/>
+          </Button>
+          <Button variant="light" isIconOnly size="sm" disabled={currentTab ? currentTab.canGoForward : false}>
+            <LuMoveRight size={20}/>
+          </Button>
+          <Button variant="light" isIconOnly size="sm">
+            <TbReload size={20}/>
+          </Button>
+
+          {/* Plugins */}
+        </div>
+      </div>
+
+      {/* URL Input */}
+      <Input
+        value={currentTab ? currentTab.url : ""}
+        size="sm"
+        className="pl-1 pr-1"
+        placeholder="Search..."
+      />
+
+      {/* Favorite Tabs (in card) */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+        {
+          favoriteTabs.map((tab: Tab) => (
+            <FavoriteTabCard tab={tab} key={tab.id}/>
+          ))
+        }
+      </div>
+
+      {/* Space Info */}
+      <div className="flex flex-row w-full gap-2 pl-1 pr-1 items-center justify-start">
+        <img src={spaceIcon} alt="" className="w-4 select-none" draggable={false}/>
+        <p className="select-none text-sm font-semibold">{spaceName}</p>
+      </div>
+
+      {/* Pinned Tabs (in list) */}
+      <div className="flex flex-col w-full gap-1">
+        {
+          pinnedTabs.map((tab: Tab) => (
+            <TabRow
+              tab={tab}
+              key={tab.id}
+              onTabClose={() => onTabClose(tab.id)}
+              onSelect={() => onTabSelect(tab.id)}
+            />
+          ))
+        }
+      </div>
+
+      <Divider className="pl-1 pr-1"/>
+
+      {/* New Tab */}
+      <div className="w-full">
+        <Button
+          startContent={<LuPlus/>}
+          variant="light"
+          className="w-full"
+          size="sm"
+          onPress={() => openNewTabModal()}
+        >
+          <p className="text-start w-full">
+            New Tab
+          </p>
+        </Button>
+      </div>
+
+      {/* Normal Tabs (in list) */}
+      <div className="flex flex-col w-full gap-1">
+        {
+          tabs.map((tab: Tab) => (
+            <TabRow
+              tab={tab}
+              key={tab.id}
+              onTabClose={() => onTabClose(tab.id)}
+              onSelect={() => onTabSelect(tab.id)}
+            />
+          ))
+        }
+      </div>
+    </div>
+  );
+}
