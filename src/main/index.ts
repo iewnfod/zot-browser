@@ -5,6 +5,8 @@ import icon from '../../resources/icon.png?asset';
 import * as http from 'node:http';
 import * as https from 'node:https';
 import { Buffer } from 'node:buffer';
+import { MenuTemplate } from './menu';
+import { Menu } from 'electron';
 
 const Store = require('electron-store').default;
 const store = new Store();
@@ -33,6 +35,9 @@ function createWindow(): void {
       spellcheck: false
     }
   });
+
+  const menu = Menu.buildFromTemplate(MenuTemplate(mainWindow));
+  mainWindow.setMenu(menu);
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show();

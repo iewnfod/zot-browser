@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { debounce } from '@renderer/lib/utils';
 import {
   Browser,
@@ -10,11 +10,10 @@ import {
 import BrowserSideBar from '@renderer/components/SideBar';
 import { CreateNewTab, Tab, upgradeTabToPinnedTab } from '@renderer/lib/tab';
 import { Space } from '@renderer/lib/space';
-import WebView from '@renderer/components/WebView';
 import useNewTabModal from '@renderer/components/modals/NewTabModal';
-import { Button, Card } from '@heroui/react';
-import { LuMaximize, LuMinimize, LuMinus, LuX } from 'react-icons/lu';
-import { isMac } from '@react-aria/utils';
+import WebViewContainer from '@renderer/components/WebViewContainer';
+import WebView from '@renderer/components/WebView';
+import { LoadMenuEvents, UnLoadMenuEvents } from '@renderer/lib/menu';
 
 function App() {
   const [browser, setBrowser] = useState<Browser>(CreateNewBrowser());
@@ -23,8 +22,6 @@ function App() {
   const [currentSpace, setCurrentSpace] = useState<Space | null>(null);
   const [allTabs, setAllTabs] = useState<Tab[]>([]);
   const [openNewTabModal, NewTabModal] = useNewTabModal(handleNewTab);
-  const [showWindowButtons, setShowWindowButtons] = useState<boolean>(false);
-  const [isMaximized, setIsMaximized] = useState<boolean>(false);
 
   function loadBrowserData() {
     window.store.get('browser').then((data) => {
@@ -57,7 +54,7 @@ function App() {
     if (!id) return null;
 
     let tab: Tab | null = null;
-    
+
     // find in favorite
     tab = bd.favoriteTabs.find((t) => t.id === id) || null;
     if (tab) return tab;
@@ -139,26 +136,18 @@ function App() {
   }
 
   function handleNewTab(url: string) {
-    console.log('handleNewTab called with url:', url);
     const newTab = CreateNewTab(url);
-    console.log('New tab created with id:', newTab.id);
     if (currentSpace) {
-      console.log('Current space:', currentSpace.id, currentSpace.name);
       setBrowser(prevBrowser => {
         const newBrowser = { ...prevBrowser };
         const spaceIndex = newBrowser.spaces.findIndex(s => s.id === currentSpace.id);
-        console.log('Space index:', spaceIndex);
 
         if (spaceIndex === -1) return prevBrowser;
-
-        console.log('Tabs before:', newBrowser.spaces[spaceIndex].tabs.length);
 
         newBrowser.spaces[spaceIndex].tabs = [
           ...newBrowser.spaces[spaceIndex].tabs,
           newTab
         ];
-
-        console.log('Tabs after:', newBrowser.spaces[spaceIndex].tabs.length);
 
         newBrowser.currentTabId = newTab.id;
         newBrowser.currentSpaceId = currentSpace.id;
@@ -177,8 +166,12 @@ function App() {
       if (index !== -1) {
         setBrowser(prevBrowser => {
           const newBrowser = {...prevBrowser};
-          newBrowser.favoriteTabs.splice(index, 1);
-          return newBrowser;
+          const removedTab = newBrowser.favoriteTabs.splice(index, 1);
+          if (removedTab[0].id === tabId) {
+            return newBrowser;
+          } else {
+            return prevBrowser;
+          }
         });
       }
     } else {
@@ -190,19 +183,29 @@ function App() {
         if (tabIndex === -1) return;
         setBrowser(prevBrowser => {
           const newBrowser = {...prevBrowser};
-          newBrowser.spaces[spaceIndex].pinnedTabs.splice(tabIndex, 1);
-          return newBrowser;
+          const removedTab = newBrowser.spaces[spaceIndex].pinnedTabs.splice(tabIndex, 1);
+          if (removedTab[0].id === tabId) {
+            return newBrowser;
+          } else {
+            return prevBrowser;
+          }
         });
       } else {
         const tabIndex = browser.spaces[spaceIndex].tabs.findIndex(t => t.id === tabId);
         if (tabIndex === -1) return;
         setBrowser(prevBrowser => {
           const newBrowser = {...prevBrowser};
-          newBrowser.spaces[spaceIndex].tabs.splice(tabIndex, 1);
-          return newBrowser;
+          const removedTab = newBrowser.spaces[spaceIndex].tabs.splice(tabIndex, 1);
+          if (removedTab[0].id === tabId) {
+            return newBrowser;
+          } else {
+            return prevBrowser;
+          }
         });
       }
     }
+
+    console.log('Close Tab:', tabData);
   }
 
   function handleSelectTab(tabId: string) {
@@ -265,21 +268,56 @@ function App() {
         }
       }
     }
+
+    console.log('Back Tab to Source:', tabData);
   }
 
-  function getIsMaximized() {
-    window.api.isMaximized().then((m) => {
-      setIsMaximized(m);
-    });
-  }
+  const closeCurrentTab = useCallback(() => {
+    console.log('Try delete current tab:', currentTab);
+
+    if (!currentTab) return;
+
+    const tabData = findTabById(currentTab.id);
+    if (!tabData) return;
+
+    if (!Array.isArray(tabData)) {
+      handlePinGoSource(tabData.id);
+    } else {
+      const [tab, _space, isPinned] = tabData;
+      if (isPinned) {
+        handlePinGoSource(tab.id);
+      } else {
+        handleTabClose(tab.id);
+      }
+    }
+  }, [currentTab]);
+
+  const reloadCurrentTab = useCallback(() => {
+    console.log('Try reload current tab:', currentTab);
+
+    if (currentTab && currentTab.webview.current) {
+      currentTab.webview.current.reload();
+    }
+  }, [currentTab]);
 
   useEffect(() => {
+    // data
     // window.store.delete("browser");
     loadBrowserData();
-    window.addEventListener('resize', () => {
-      getIsMaximized();
-    });
   }, []);
+
+  useEffect(() => {
+    // menu
+    LoadMenuEvents({
+      openNewTabModal,
+      closeCurrentTab,
+      reloadCurrentTab
+    });
+
+    return () => {
+      UnLoadMenuEvents();
+    }
+  }, [currentTab]);
 
   useEffect(() => {
     if (isInitialized && browser) {
@@ -295,8 +333,6 @@ function App() {
       if (browser.currentTabId) {
         const tabData = findTabById(browser.currentTabId, browser, space);
         if (!tabData) return;
-
-        console.log(tabData);
 
         let tab: Tab | null = null;
         if (!Array.isArray(tabData)) {
@@ -343,66 +379,21 @@ function App() {
         />
 
         {/* WebView */}
-        {
-          allTabs.map((tab) => (
-            <div
-              key={tab.id}
-              className={`flex flex-col w-full h-full select-none grow ${tab.id === browser.currentTabId ? '' : 'hidden'}`}
-            >
-              {
-                isMac() ? (
-                  <div className="w-full h-2"/>
-                ) : (
-                  <div
-                    className={`
-                      w-full h-2 hover:h-10 transition-all duration-300 ease-in-out
-                      flex flex-row justify-end items-center
-                    `}
-                    onMouseEnter={() => setShowWindowButtons(true)}
-                    onMouseLeave={() => setShowWindowButtons(false)}
-                  >
-                    <div
-                      className={`flex flex-row h-full ${showWindowButtons ? '' : 'hidden'}`}
-                    >
-                      <Button isIconOnly variant="light" onPress={window.api.minimize}>
-                        <LuMinus size={20}/>
-                      </Button>
-                      {
-                        isMaximized ? (
-                          <Button isIconOnly variant="light" onPress={() => window.api.unmaximize().then(() => getIsMaximized())}>
-                            <LuMinimize size={20}/>
-                          </Button>
-                        ) : (
-                          <Button isIconOnly variant="light" onPress={() => window.api.maximize().then(() => getIsMaximized())}>
-                            <LuMaximize size={20}/>
-                          </Button>
-                        )
-                      }
-                      <Button isIconOnly variant="light" color="danger" onPress={window.api.close}>
-                        <LuX size={20}/>
-                      </Button>
-                    </div>
-                  </div>
-                )
-              }
-
-              <div className="w-full h-full grow p-2 pl-0 pt-0">
-                <Card
-                  className={"w-full h-full overflow-hidden"}
-                >
-                  <WebView
-                    src={tab.src}
-                    ref={tab.webview}
-                    className="w-full h-full"
-                    onPageFaviconUpdated={(favicons) => handleFaviconsUpdate(favicons, tab.id)}
-                    onPageTitleUpdated={(title) => handleTitleUpdate(title, tab.id)}
-                    onLoadCommit={(url, isMainFrame) => handleLoadCommit(url, isMainFrame, tab.id)}
-                  />
-                </Card>
-              </div>
-            </div>
-          ))
-        }
+        <WebViewContainer>
+          {
+            allTabs.map((tab) => (
+              <WebView
+                key={tab.id}
+                src={tab.src}
+                ref={tab.webview}
+                className={`w-full h-full ${tab.id === browser.currentTabId ? '' : 'hidden'}`}
+                onPageFaviconUpdated={(favicons) => handleFaviconsUpdate(favicons, tab.id)}
+                onPageTitleUpdated={(title) => handleTitleUpdate(title, tab.id)}
+                onLoadCommit={(url, isMainFrame) => handleLoadCommit(url, isMainFrame, tab.id)}
+              />
+            ))
+          }
+        </WebViewContainer>
       </div>
     </div>
   );

@@ -7,7 +7,6 @@ export interface Space {
   tabs: Tab[];
   pinnedTabs: Tab[];
   themeColor: string;
-  currentTabId?: string;
 }
 
 export interface SerializableSpace {
@@ -17,7 +16,6 @@ export interface SerializableSpace {
   tabs: SerializableTab[];
   pinnedTabs: SerializableTab[];
   themeColor: string;
-  currentTabId?: string;
 }
 
 export function serializeSpace(space: Space): SerializableSpace {
@@ -28,7 +26,6 @@ export function serializeSpace(space: Space): SerializableSpace {
     tabs: space.tabs.map((t) => serializeTab(t)),
     pinnedTabs: space.pinnedTabs.map((t) => serializeTab(t)),
     themeColor: space.themeColor,
-    currentTabId: space.currentTabId,
   };
 }
 
@@ -40,7 +37,6 @@ export function deserializeSpace(space: SerializableSpace) {
     tabs: space.tabs.map((t) => deserializeTab(t)),
     pinnedTabs: space.pinnedTabs.map((t) => deserializeTab(t)),
     themeColor: space.themeColor,
-    currentTabId: space.currentTabId,
   };
 }
 
@@ -52,6 +48,5 @@ export function CreateNewSpace(): Space {
     tabs: [],
     pinnedTabs: [],
     themeColor: "",
-    currentTabId: "",
   };
 }

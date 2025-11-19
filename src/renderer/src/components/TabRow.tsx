@@ -34,7 +34,13 @@ export default function TabRow({
     ]}>
       <ButtonGroup variant="light" key={tab.id} size="sm" className="w-full">
         <Button
-          startContent={<img src={tab.favicon} alt="" className="h-[50%]"/>}
+          startContent={
+            <img
+              src={tab.favicon}
+              alt=""
+              className="h-[50%]"
+            />
+          }
           className={`w-full ${isSelected ? 'bg-gray-200' : ''}`}
           onPress={onSelect}
         >
