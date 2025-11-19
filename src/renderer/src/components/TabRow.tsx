@@ -1,6 +1,6 @@
 import { Tab } from '@renderer/lib/tab';
 import { Button, ButtonGroup } from '@heroui/react';
-import { LuMinus, LuX } from 'react-icons/lu';
+import { LuMinus, LuSquareDashed, LuX } from 'react-icons/lu';
 import ContextMenu from '@renderer/components/ContextMenu';
 
 export default function TabRow({
@@ -35,13 +35,20 @@ export default function TabRow({
       <ButtonGroup variant="light" key={tab.id} size="sm" className="w-full">
         <Button
           startContent={
-            <img
-              src={tab.favicon}
-              alt=""
-              className="h-[50%]"
-            />
+            tab.favicon ? (
+              <img
+                src={tab.favicon}
+                alt=""
+                className="h-[50%]"
+              />
+            ) : (
+              <LuSquareDashed
+                className="text-neutral-700"
+                size={16}
+              />
+            )
           }
-          className={`w-full ${isSelected ? 'bg-gray-200' : ''}`}
+          className={`w-full ${isSelected ? 'bg-neutral-200' : ''}`}
           onPress={onSelect}
         >
           <p className="w-full text-start overflow-hidden whitespace-nowrap text-ellipsis">
@@ -53,7 +60,7 @@ export default function TabRow({
             <Button
               isIconOnly
               onPress={onPinGoSource}
-              className={`${isSelected ? 'bg-gray-200' : ''}`}
+              className={`${isSelected ? 'bg-neutral-200' : ''}`}
             >
               <LuMinus/>
             </Button>
@@ -61,7 +68,7 @@ export default function TabRow({
             <Button
               isIconOnly
               onPress={onTabClose}
-              className={`${isSelected ? 'bg-gray-200' : ''}`}
+              className={`${isSelected ? 'bg-neutral-200' : ''}`}
             >
               <LuX/>
             </Button>

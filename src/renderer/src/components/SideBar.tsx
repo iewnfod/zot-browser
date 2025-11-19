@@ -1,6 +1,5 @@
 import { Button, Divider, Dropdown, DropdownItem, DropdownMenu, DropdownTrigger, Input } from '@heroui/react';
-import { LuMenu, LuMoveLeft, LuMoveRight, LuPanelLeftClose, LuPanelLeftOpen, LuPlus } from 'react-icons/lu';
-import { TbReload } from 'react-icons/tb';
+import { LuMenu, LuMoveLeft, LuMoveRight, LuPanelLeftClose, LuPanelLeftOpen, LuPlus, LuRotateCw } from 'react-icons/lu';
 import { Tab } from '@renderer/lib/tab';
 import FavoriteTabCard from '@renderer/components/FavoriteTabCard';
 import TabRow from '@renderer/components/TabRow';
@@ -122,7 +121,7 @@ export default function BrowserSideBar({
               <LuMoveRight size={20}/>
             </Button>
             <Button variant="light" isIconOnly size="sm" onPress={handleReload}>
-              <TbReload size={20}/>
+              <LuRotateCw size={20}/>
             </Button>
 
             {/* Plugins */}
@@ -174,7 +173,7 @@ export default function BrowserSideBar({
         {/* New Tab */}
         <div className="w-full">
           <Button
-            startContent={<LuPlus/>}
+            startContent={<LuPlus size={16}/>}
             variant="light"
             className="w-full"
             size="sm"
