@@ -119,8 +119,15 @@ function App() {
 
   function handleFaviconsUpdate(favicons: string[], tabId: string) {
     if (favicons && favicons.length > 0) {
-      window.api.getFavicon(favicons[0]).then((data) => {
-        updateTabProperty(tabId, { favicon: data });
+      let faviconLoadSuccess = false;
+      favicons.forEach((favicon) => {
+        if (faviconLoadSuccess) {
+          return;
+        }
+        window.api.getFavicon(favicon).then((data) => {
+          updateTabProperty(tabId, { favicon: data });
+          faviconLoadSuccess = true;
+        });
       });
     }
   }

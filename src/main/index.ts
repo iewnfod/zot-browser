@@ -89,7 +89,7 @@ app.whenReady().then(() => {
       const protocol = url.startsWith('https') ? https : http;
       protocol.get(url, (response) => {
         if (response.statusCode !== 200) {
-          reject(new Error(`Failed to fetch favicon. HTTP status code ${response.statusCode}`));
+          reject(new Error(`Failed to fetch favicon. ${url} \nHTTP status code ${response.statusCode}`));
           return;
         }
         const chunks: any[] = [];
