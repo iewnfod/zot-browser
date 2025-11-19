@@ -18,6 +18,8 @@ export default function BrowserSideBar({
   onTabClose,
   onTabSelect,
   className,
+  onTabPin,
+  onPinGoSource,
 } : {
   showSideBar: boolean;
   currentTab: Tab | null;
@@ -30,6 +32,8 @@ export default function BrowserSideBar({
   onTabClose: (tabId: string) => void;
   onTabSelect: (tabId: string) => void;
   className?: string;
+  onTabPin: (tabId: string) => void;
+  onPinGoSource: (tabId: string) => void;
 }) {
   function handleGoBack() {
     if (currentTab && currentTab.webview.current) {
@@ -68,21 +72,21 @@ export default function BrowserSideBar({
   return (
     <div className={`h-full min-w-64 w-[15vw] ${className}`} style={{
       // @ts-expect-error electron attribute
-      'app-region': 'drag',
+      appRegion: 'drag',
     }}>
       <div className="flex flex-col w-full gap-2" style={{
         // @ts-expect-error electron attribute
-        'app-region': 'no-drag',
+        appRegion: 'no-drag',
       }}>
         {/* Actions */}
         <div className={`flex flex-row justify-between items-center ${isMac() ? 'pl-20' : ''}`} style={{
           // @ts-expect-error electron attribute
-          'app-region': 'drag',
+          appRegion: 'drag',
         }}>
           {/* More, Go Back, Go Forward, Reload */}
           <div className="flex flex-row justify-start items-center" style={{
             // @ts-expect-error electron attribute
-            'app-region': 'no-drag',
+            appRegion: 'no-drag',
           }}>
             <Dropdown>
               <DropdownTrigger>
@@ -109,7 +113,7 @@ export default function BrowserSideBar({
 
           <div className="flex flex-row justify-end items-center" style={{
             // @ts-expect-error electron attribute
-            'app-region': 'no-drag',
+            appRegion: 'no-drag',
           }}>
             <Button variant="light" isIconOnly size="sm" isDisabled={!canGoBack()} onPress={handleGoBack}>
               <LuMoveLeft size={20}/>
@@ -143,13 +147,13 @@ export default function BrowserSideBar({
         </div>
 
         {/* Space Info */}
-        <div className="flex flex-row w-full gap-2 pl-1 pr-1 items-center justify-start">
+        <div className="flex flex-row w-full gap-2 pl-3 pr-1 items-center justify-start">
           <img src={spaceIcon} alt="" className="w-4 select-none" draggable={false}/>
-          <p className="select-none text-sm font-semibold">{spaceName}</p>
+          <p className="select-none text-sm font-semibold whitespace-nowrap text-ellipsis">{spaceName}</p>
         </div>
 
         {/* Pinned Tabs (in list) */}
-        <div className="flex flex-col w-full gap-1">
+        <div className={`flex flex-col w-full gap-1 ${pinnedTabs.length > 0 ? 'pt-1' : ''}`}>
           {
             pinnedTabs.map((tab: Tab) => (
               <TabRow
@@ -158,6 +162,8 @@ export default function BrowserSideBar({
                 onTabClose={() => onTabClose(tab.id)}
                 onSelect={() => onTabSelect(tab.id)}
                 isSelected={currentTab ? currentTab.id === tab.id : false}
+                isPinned={true}
+                onPinGoSource={() => onPinGoSource(tab.id)}
               />
             ))
           }
@@ -190,6 +196,8 @@ export default function BrowserSideBar({
                 onTabClose={() => onTabClose(tab.id)}
                 onSelect={() => onTabSelect(tab.id)}
                 isSelected={currentTab ? currentTab.id === tab.id : false}
+                isPinned={false}
+                onPin={() => onTabPin(tab.id)}
               />
             ))
           }

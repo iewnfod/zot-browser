@@ -8,10 +8,8 @@ export interface Tab {
   src: string;
   favicon: string;
   webview: RefObject<WebViewMethods | null>;
-  isLoading?: boolean;
-  canGoBack?: boolean;
-  canGoForward?: boolean;
   lastAccessed?: number;
+  pinnedUrl?: string;
 }
 
 export interface SerializableTab {
@@ -20,6 +18,21 @@ export interface SerializableTab {
   url: string;
   favicon: string;
   lastAccessed?: number;
+  pinnedUrl?: string;
+}
+
+export function upgradeTabToPinnedTab(tab: Tab): Tab {
+  return {
+    ...tab,
+    pinnedUrl: tab.url,
+  };
+}
+
+export function downgradePinnedTabToTab(tab: Tab): Tab {
+  return {
+    ...tab,
+    pinnedUrl: tab.url
+  };
 }
 
 export function CreateNewTab(src: string) {
@@ -31,6 +44,7 @@ export function CreateNewTab(src: string) {
     favicon: "",
     webview: {current: null},
     lastAccessed: Date.now(),
+    pinnedUrl: "",
   } as Tab;
 }
 
@@ -41,6 +55,7 @@ export function serializeTab(tab: Tab): SerializableTab {
     url: tab.url,
     favicon: tab.favicon,
     lastAccessed: tab.lastAccessed,
+    pinnedUrl: tab.pinnedUrl,
   };
 }
 
@@ -48,10 +63,11 @@ export function deserializeTab(tab: SerializableTab): Tab {
   return {
     id: tab.id,
     name: tab.name,
-    src: tab.url,
+    src: tab.pinnedUrl || tab.url,
     url: tab.url,
     favicon: tab.favicon,
     webview: {current: null},
     lastAccessed: tab.lastAccessed,
+    pinnedUrl: tab.pinnedUrl,
   };
 }

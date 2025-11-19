@@ -8,7 +8,7 @@ import {
   serializeBrowser
 } from '@renderer/lib/browser';
 import BrowserSideBar from '@renderer/components/SideBar';
-import { CreateNewTab, Tab } from '@renderer/lib/tab';
+import { CreateNewTab, Tab, upgradeTabToPinnedTab } from '@renderer/lib/tab';
 import { Space } from '@renderer/lib/space';
 import WebView from '@renderer/components/WebView';
 import useNewTabModal from '@renderer/components/modals/NewTabModal';
@@ -44,34 +44,38 @@ function App() {
     []
   );
 
-  function findTabById(id: string | undefined): [Tab, Space, boolean] | Tab | null {
+  function findTabById(id: string | undefined, browserData?: Browser, currentSpaceData?: Space): [Tab, Space, boolean] | Tab | null {
+    let bd = browserData;
+    if (!bd) {
+      bd = browser;
+    }
+    let csd = currentSpaceData;
+    if (!csd) {
+      csd = currentSpace || undefined;
+    }
+
     if (!id) return null;
 
     let tab: Tab | null = null;
-
-    // check is current tab
-    if (currentSpace && currentTab && currentTab.id === id) {
-      return [currentTab, currentSpace, currentSpace.pinnedTabs.find((t) => t.id === id) !== undefined];
-    }
-
+    
     // find in favorite
-    tab = browser.favoriteTabs.find((t) => t.id === id) || null;
+    tab = bd.favoriteTabs.find((t) => t.id === id) || null;
     if (tab) return tab;
 
     // find in current space
-    if (currentSpace) {
-      tab = currentSpace.pinnedTabs.find((t) => t.id === id) || null;
-      if (tab) return [tab, currentSpace, true];
-      tab = currentSpace.tabs.find((t) => t.id === id) || null;
-      if (tab) return [tab, currentSpace, false];
+    if (csd) {
+      tab = csd.pinnedTabs.find((t) => t.id === id) || null;
+      if (tab) return [tab, csd, true];
+      tab = csd.tabs.find((t) => t.id === id) || null;
+      if (tab) return [tab, csd, false];
     }
 
     // find in other space
-    for (let i = 0; i < browser.spaces.length; i ++) {
-      tab = browser.spaces[i].pinnedTabs.find((t) => t.id === id) || null;
-      if (tab) return [tab, browser.spaces[i], true];
-      tab = browser.spaces[i].tabs.find((t) => t.id === id) || null;
-      if (tab) return [tab, browser.spaces[i], false];
+    for (let i = 0; i < bd.spaces.length; i ++) {
+      tab = bd.spaces[i].pinnedTabs.find((t) => t.id === id) || null;
+      if (tab) return [tab, bd.spaces[i], true];
+      tab = bd.spaces[i].tabs.find((t) => t.id === id) || null;
+      if (tab) return [tab, bd.spaces[i], false];
     }
 
     // final
@@ -81,6 +85,10 @@ function App() {
   function updateTabProperty(tabId: string, updates: Partial<Tab>) {
     const tabData = findTabById(tabId);
     if (!tabData) return;
+
+    if (currentTab && currentTab.id === tabId) {
+      setCurrentTab(prev => prev ? { ...prev, ...updates } : null);
+    }
 
     setBrowser(prevBrowser => {
       const newBrowser = {...prevBrowser};
@@ -217,6 +225,48 @@ function App() {
     }
   }
 
+  function handlePinTab(tabId: string) {
+    const tabData = findTabById(tabId);
+    if (!tabData) return;
+    if (Array.isArray(tabData)) {
+      const [_tab, space, isPinned] = tabData;
+      if (!isPinned) {
+        console.log('Pin tab: ', tabId);
+        // move tab from normal to pin
+        setBrowser((prevBrowser) => {
+          const newBrowser = {...prevBrowser};
+          const spaceIndex = newBrowser.spaces.findIndex(s => s.id === space.id);
+          if (spaceIndex === -1) return prevBrowser;
+          const tabIndex = newBrowser.spaces[spaceIndex].tabs.findIndex(t => t.id === tabId);
+          if (tabIndex === -1) return prevBrowser;
+          const moveTab = newBrowser.spaces[spaceIndex].tabs.splice(tabIndex, 1);
+          moveTab.forEach((tab) => {
+            newBrowser.spaces[spaceIndex].pinnedTabs.push(upgradeTabToPinnedTab(tab));
+          });
+          return newBrowser;
+        });
+      }
+    }
+  }
+
+  function handlePinGoSource(tabId: string) {
+    const tabData = findTabById(tabId);
+    if (!tabData) return;
+    if (!Array.isArray(tabData)) {
+      if (tabData.webview.current && tabData.pinnedUrl) {
+        tabData.webview.current.loadURL(tabData.pinnedUrl);
+      }
+    } else {
+      const [tab, _space, isPinned] = tabData;
+      if (isPinned) {
+        console.log(`Pin tab ${tab.id} back to ${tab.pinnedUrl}`);
+        if (tab.webview.current && tab.pinnedUrl) {
+          tab.webview.current.loadURL(tab.pinnedUrl);
+        }
+      }
+    }
+  }
+
   function getIsMaximized() {
     window.api.isMaximized().then((m) => {
       setIsMaximized(m);
@@ -226,7 +276,9 @@ function App() {
   useEffect(() => {
     // window.store.delete("browser");
     loadBrowserData();
-    getIsMaximized();
+    window.addEventListener('resize', () => {
+      getIsMaximized();
+    });
   }, []);
 
   useEffect(() => {
@@ -241,8 +293,10 @@ function App() {
       setCurrentSpace(space);
 
       if (browser.currentTabId) {
-        const tabData = findTabById(browser.currentTabId);
+        const tabData = findTabById(browser.currentTabId, browser, space);
         if (!tabData) return;
+
+        console.log(tabData);
 
         let tab: Tab | null = null;
         if (!Array.isArray(tabData)) {
@@ -283,6 +337,8 @@ function App() {
           openNewTabModal={openNewTabModal}
           onTabClose={handleTabClose}
           onTabSelect={handleSelectTab}
+          onTabPin={handlePinTab}
+          onPinGoSource={handlePinGoSource}
           className="p-2 pr-0"
         />
 
