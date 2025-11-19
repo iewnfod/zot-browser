@@ -337,6 +337,27 @@ function App() {
     }
   }, [currentTab]);
 
+  const currentTabGoBack = useCallback(() => {
+    console.log('Try current tab go back:', currentTab);
+    if (currentTab && currentTab.webview.current) {
+      currentTab.webview.current.goBack();
+    }
+  }, [currentTab]);
+
+  const currentTabGoForward = useCallback(() => {
+    console.log('Try current tab go forward:', currentTab);
+    if (currentTab && currentTab.webview.current) {
+      currentTab.webview.current.goForward();
+    }
+  }, [currentTab]);
+
+  const toggleSideBar = useCallback(() => {
+    console.log('Try toggle sidebar, current state: ', settings.showSideBar);
+    if (settings) {
+      handleSetSiteBarState(!settings.showSideBar);
+    }
+  }, [settings]);
+
   useEffect(() => {
     // data
     // window.store.delete("browser");
@@ -350,13 +371,16 @@ function App() {
     LoadMenuEvents({
       openNewTabModal,
       closeCurrentTab,
-      reloadCurrentTab
+      reloadCurrentTab,
+      currentTabGoBack,
+      currentTabGoForward,
+      toggleSideBar
     });
 
     return () => {
       UnLoadMenuEvents();
     }
-  }, [currentTab]);
+  }, [currentTab, settings]);
 
   useEffect(() => {
     if (isBrowserInitialized && browser) {

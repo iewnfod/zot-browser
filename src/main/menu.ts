@@ -18,6 +18,16 @@ export function MenuTemplate(mainWindow: BrowserWindow) {
       ]
     },
     {
+      label: 'View',
+      submenu: [
+        {
+          label: 'Toggle SideBar',
+          accelerator: 'CmdOrCtrl+Shift+S',
+          click: () => emitEvent(mainWindow, 'menu-toggle-sidebar')
+        },
+      ]
+    },
+    {
       label: 'Tab',
       submenu: [
         {
@@ -34,6 +44,16 @@ export function MenuTemplate(mainWindow: BrowserWindow) {
           label: 'Reload',
           accelerator: 'CmdOrCtrl+R',
           click: () => emitEvent(mainWindow, 'menu-reload-tab')
+        },
+        {
+          label: 'Go Back',
+          accelerator: 'CmdOrCtrl+[',
+          click: () => emitEvent(mainWindow, 'menu-tab-go-back')
+        },
+        {
+          label: 'Go Forward',
+          accelerator: 'CmdOrCtrl+]',
+          click: () => emitEvent(mainWindow, 'menu-tab-go-forward')
         }
       ]
     },
