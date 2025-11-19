@@ -15,6 +15,7 @@ import WebViewContainer from '@renderer/components/WebViewContainer';
 import WebView from '@renderer/components/WebView';
 import { LoadMenuEvents, UnLoadMenuEvents } from '@renderer/lib/menu';
 import { getDefaultSettings, Settings } from '@renderer/lib/settings';
+import ResizeSidebarDivider from '@renderer/components/ResizeSidebarDivider';
 
 function App() {
   const [browser, setBrowser] = useState<Browser>(CreateNewBrowser());
@@ -358,6 +359,14 @@ function App() {
     }
   }, [settings]);
 
+  const setSidebarWidth = useCallback((width: number) => {
+    setSettings((prevSettings) => {
+      const newSettings = {...prevSettings};
+      newSettings.sidebarWidth = width;
+      return newSettings;
+    });
+  }, [settings]);
+
   useEffect(() => {
     // data
     // window.store.delete("browser");
@@ -430,7 +439,7 @@ function App() {
   return (
     <div className="flex flex-col w-[100vw] h-[100vh]">
       {NewTabModal}
-      <div className={`flex flex-row w-fulls h-full grow ${settings.showSideBar ? 'gap-2' : 'gap-0'}`}>
+      <div className={`flex flex-row w-fulls h-full grow gap-0`}>
         <BrowserSideBar
           showSideBar={settings.showSideBar}
           currentTab={currentTab}
@@ -445,8 +454,18 @@ function App() {
           onPinGoSource={handlePinGoSource}
           setSiteBarState={handleSetSiteBarState}
           spaces={browser.spaces}
+          width={settings.sidebarWidth}
           className="p-2 pr-0"
         />
+
+        {
+          settings.showSideBar && (
+            <ResizeSidebarDivider
+              sidebarWidth={settings.sidebarWidth}
+              setSidebarWidth={setSidebarWidth}
+            />
+          )
+        }
 
         {/* WebView */}
         <WebViewContainer>

@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron';
+import { app, shell, BrowserWindow, ipcMain, screen } from 'electron';
 import { join } from 'path';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import icon from '../../resources/icon.png?asset';
@@ -101,6 +101,10 @@ app.whenReady().then(() => {
 
   ipcMain.handle('store-delete', async (_, key) => {
     return store.delete(key);
+  });
+
+  ipcMain.handle('scale-factor', () => {
+    return screen.getPrimaryDisplay().scaleFactor;
   });
 
   createWindow();
