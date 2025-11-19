@@ -1,25 +1,21 @@
-import { Button, Divider, Dropdown, DropdownItem, DropdownMenu, DropdownTrigger, Input } from '@heroui/react';
+import {
+  Button,
+  Divider, Drawer, DrawerContent,
+  Dropdown,
+  DropdownItem,
+  DropdownMenu,
+  DropdownTrigger,
+  Input,
+  useDisclosure
+} from '@heroui/react';
 import { LuMenu, LuMoveLeft, LuMoveRight, LuPanelLeftClose, LuPanelLeftOpen, LuPlus, LuRotateCw } from 'react-icons/lu';
 import { Tab } from '@renderer/lib/tab';
 import FavoriteTabCard from '@renderer/components/FavoriteTabCard';
 import TabRow from '@renderer/components/TabRow';
 import { isMac } from '@react-aria/utils';
+import { useRef } from 'react';
 
-export default function BrowserSideBar({
-  showSideBar,
-  currentTab,
-  favoriteTabs,
-  pinnedTabs,
-  tabs,
-  spaceName,
-  spaceIcon,
-  openNewTabModal,
-  onTabClose,
-  onTabSelect,
-  className,
-  onTabPin,
-  onPinGoSource,
-} : {
+export interface BrowserSideBarProps {
   showSideBar: boolean;
   currentTab: Tab | null;
   favoriteTabs: Tab[];
@@ -33,7 +29,29 @@ export default function BrowserSideBar({
   className?: string;
   onTabPin: (tabId: string) => void;
   onPinGoSource: (tabId: string) => void;
-}) {
+  setSiteBarState: (state: boolean) => void;
+}
+
+interface BrowserSideBarContentProps extends BrowserSideBarProps {}
+
+function BrowserSideBarContent(props: BrowserSideBarContentProps) {
+  const {
+    showSideBar,
+    currentTab,
+    favoriteTabs,
+    pinnedTabs,
+    tabs,
+    spaceName,
+    spaceIcon,
+    openNewTabModal,
+    onTabClose,
+    onTabSelect,
+    className,
+    onTabPin,
+    onPinGoSource,
+    setSiteBarState,
+  } = props;
+
   function handleGoBack() {
     if (currentTab && currentTab.webview.current) {
       currentTab.webview.current.goBack();
@@ -72,7 +90,7 @@ export default function BrowserSideBar({
     <div className={`h-full min-w-64 w-[15vw] ${className}`} style={{
       // @ts-expect-error electron attribute
       appRegion: 'drag',
-    }}>
+    }} id="sidebar-container">
       <div className="flex flex-col w-full gap-2" style={{
         // @ts-expect-error electron attribute
         appRegion: 'no-drag',
@@ -99,11 +117,11 @@ export default function BrowserSideBar({
             </Dropdown>
             {
               showSideBar ? (
-                <Button variant="light" isIconOnly size="sm">
+                <Button variant="light" isIconOnly size="sm" onPress={() => setSiteBarState(false)}>
                   <LuPanelLeftClose size={20}/>
                 </Button>
               ) : (
-                <Button variant="light" isIconOnly size="sm">
+                <Button variant="light" isIconOnly size="sm" onPress={() => setSiteBarState(true)}>
                   <LuPanelLeftOpen size={20}/>
                 </Button>
               )
@@ -204,4 +222,57 @@ export default function BrowserSideBar({
       </div>
     </div>
   );
+}
+
+export default function BrowserSideBar(props: BrowserSideBarProps) {
+  const {isOpen, onOpen, onClose, onOpenChange} = useDisclosure();
+
+  const closeTimeoutRef = useRef<NodeJS.Timeout>(null);
+
+  const handleMouseLeave = () => {
+    closeTimeoutRef.current = setTimeout(() => {
+      onClose();
+    }, 300);
+  };
+
+  const handleMouseEnter = () => {
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+    }
+  };
+
+  if (props.showSideBar) {
+    return (
+      <BrowserSideBarContent
+        {...props}
+      />
+    );
+  } else {
+    return (
+      <div className="flex flex-row h-full">
+        <div
+          className="h-full w-2"
+          onMouseEnter={onOpen}
+        />
+        <Drawer
+          isOpen={isOpen}
+          onOpenChange={onOpenChange}
+          placement="left"
+          hideCloseButton
+          classNames={{
+            base: "sm:data-[placement=right]:m-3 sm:data-[placement=left]:m-3 rounded-medium min-w-0 w-auto pr-2",
+          }}
+        >
+          <DrawerContent
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+          >
+            <BrowserSideBarContent
+              {...props}
+            />
+          </DrawerContent>
+        </Drawer>
+      </div>
+    );
+  }
 }

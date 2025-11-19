@@ -5,7 +5,7 @@ import { ReactNode, useEffect, useState } from 'react';
 
 export default function WebViewContainer({
   children,
-  hide = false
+  hide = false,
 } : {
   children?: ReactNode;
   hide?: boolean;
@@ -69,9 +69,7 @@ export default function WebViewContainer({
       }
 
       <div className="w-full h-full grow p-2 pl-0 pt-0">
-        <Card
-          className={"w-full h-full overflow-hidden"}
-        >
+        <Card className="w-full h-full overflow-hidden">
           {children}
         </Card>
       </div>

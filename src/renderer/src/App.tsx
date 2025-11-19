@@ -48,7 +48,7 @@ function App() {
 
   const debouncedSaveBrowser = useMemo(
     () => debounce((browserToSave: SerializableBrowser) => {
-      console.log("Debounced saving to store:", browserToSave);
+      console.log("Debounced saving browser to store:", browserToSave);
       window.store.set('browser', browserToSave);
     }, 500),
     []
@@ -56,8 +56,8 @@ function App() {
 
   const debouncedSaveSettings = useMemo(
     () => debounce((settingsToSave: Settings) => {
-      console.log("Debounced saving to store:", settingsToSave);
-      window.store.set('browser', settingsToSave);
+      console.log("Debounced saving settings to store:", settingsToSave);
+      window.store.set('settings', settingsToSave);
     }, 500),
     []
   );
@@ -300,6 +300,15 @@ function App() {
     console.log('Back Tab to Source:', tabData);
   }
 
+  function handleSetSiteBarState(status: boolean) {
+    setSettings((prevSettings) => {
+      return {
+        ...prevSettings,
+        showSideBar: status
+      };
+    });
+  }
+
   const closeCurrentTab = useCallback(() => {
     console.log('Try delete current tab:', currentTab);
 
@@ -397,7 +406,7 @@ function App() {
   return (
     <div className="flex flex-col w-[100vw] h-[100vh]">
       {NewTabModal}
-      <div className="flex flex-row w-fulls h-full grow gap-2">
+      <div className={`flex flex-row w-fulls h-full grow ${settings.showSideBar ? 'gap-2' : 'gap-0'}`}>
         <BrowserSideBar
           showSideBar={settings.showSideBar}
           currentTab={currentTab}
@@ -411,6 +420,7 @@ function App() {
           onTabSelect={handleSelectTab}
           onTabPin={handlePinTab}
           onPinGoSource={handlePinGoSource}
+          setSiteBarState={handleSetSiteBarState}
           className="p-2 pr-0"
         />
 
