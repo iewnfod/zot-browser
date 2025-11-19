@@ -4,7 +4,6 @@ import { CreateNewSpace, deserializeSpace, SerializableSpace, serializeSpace, Sp
 export interface Browser {
   favoriteTabs: Tab[],
   spaces: Space[];
-  showSideBar: boolean;
   currentTabId?: string;
   currentSpaceId?: string;
 }
@@ -12,7 +11,6 @@ export interface Browser {
 export interface SerializableBrowser {
   favoriteTabs: SerializableTab[];
   spaces: SerializableSpace[];
-  showSideBar: boolean;
   currentTabId?: string;
   currentSpaceId?: string;
 }
@@ -21,7 +19,6 @@ export function serializeBrowser(browser: Browser): SerializableBrowser {
   return {
     favoriteTabs: browser.favoriteTabs.map(t => serializeTab(t)),
     spaces: browser.spaces.map(s => serializeSpace(s)),
-    showSideBar: browser.showSideBar,
     currentTabId: browser.currentTabId,
     currentSpaceId: browser.currentSpaceId,
   };
@@ -31,7 +28,6 @@ export function deserializeBrowser(browser: SerializableBrowser): Browser {
   return {
     favoriteTabs: browser.favoriteTabs.map(t => deserializeTab(t)),
     spaces: browser.spaces.map(s => deserializeSpace(s)),
-    showSideBar: browser.showSideBar,
     currentTabId: browser.currentTabId,
     currentSpaceId: browser.currentSpaceId,
   };
@@ -43,7 +39,6 @@ export function CreateNewBrowser(): Browser {
   return {
     favoriteTabs: [],
     spaces: [defaultSpace],
-    showSideBar: true,
     currentSpaceId: defaultSpace.id
   };
 }

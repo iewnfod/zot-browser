@@ -14,14 +14,17 @@ import useNewTabModal from '@renderer/components/modals/NewTabModal';
 import WebViewContainer from '@renderer/components/WebViewContainer';
 import WebView from '@renderer/components/WebView';
 import { LoadMenuEvents, UnLoadMenuEvents } from '@renderer/lib/menu';
+import { getDefaultSettings, Settings } from '@renderer/lib/settings';
 
 function App() {
   const [browser, setBrowser] = useState<Browser>(CreateNewBrowser());
-  const [isInitialized, setIsInitialized] = useState<boolean>(false);
+  const [isBrowserInitialized, setIsBrowserInitialized] = useState<boolean>(false);
   const [currentTab, setCurrentTab] = useState<Tab | null>(null);
   const [currentSpace, setCurrentSpace] = useState<Space | null>(null);
   const [allTabs, setAllTabs] = useState<Tab[]>([]);
   const [openNewTabModal, NewTabModal] = useNewTabModal(handleNewTab);
+  const [settings, setSettings] = useState<Settings>(getDefaultSettings());
+  const [isSettingsInitialized, setIsSettingsInitialized] = useState<boolean>(false);
 
   function loadBrowserData() {
     window.store.get('browser').then((data) => {
@@ -29,14 +32,32 @@ function App() {
         console.log('Load Browser', data);
         setBrowser(deserializeBrowser(data));
       }
-      setIsInitialized(true);
+      setIsBrowserInitialized(true);
     });
   }
 
-  const debouncedSave = useMemo(
+  function loadSettingsData() {
+    window.store.get('settings').then((data) => {
+      if (data) {
+        console.log('Load Settings', data);
+        setSettings(data);
+      }
+      setIsSettingsInitialized(true);
+    });
+  }
+
+  const debouncedSaveBrowser = useMemo(
     () => debounce((browserToSave: SerializableBrowser) => {
       console.log("Debounced saving to store:", browserToSave);
       window.store.set('browser', browserToSave);
+    }, 500),
+    []
+  );
+
+  const debouncedSaveSettings = useMemo(
+    () => debounce((settingsToSave: Settings) => {
+      console.log("Debounced saving to store:", settingsToSave);
+      window.store.set('browser', settingsToSave);
     }, 500),
     []
   );
@@ -310,7 +331,9 @@ function App() {
   useEffect(() => {
     // data
     // window.store.delete("browser");
+    // window.store.delete("settings");
     loadBrowserData();
+    loadSettingsData();
   }, []);
 
   useEffect(() => {
@@ -327,10 +350,16 @@ function App() {
   }, [currentTab]);
 
   useEffect(() => {
-    if (isInitialized && browser) {
-      debouncedSave(serializeBrowser(browser));
+    if (isBrowserInitialized && browser) {
+      debouncedSaveBrowser(serializeBrowser(browser));
     }
-  }, [browser, isInitialized]);
+  }, [browser, isBrowserInitialized]);
+
+  useEffect(() => {
+    if (isSettingsInitialized && settings) {
+      debouncedSaveSettings(settings);
+    }
+  }, [settings, isSettingsInitialized]);
 
   useEffect(() => {
     const space = browser.spaces.find((s) => s.id === browser.currentSpaceId);
@@ -370,7 +399,7 @@ function App() {
       {NewTabModal}
       <div className="flex flex-row w-fulls h-full grow gap-2">
         <BrowserSideBar
-          showSideBar={browser.showSideBar}
+          showSideBar={settings.showSideBar}
           currentTab={currentTab}
           favoriteTabs={browser.favoriteTabs}
           pinnedTabs={currentSpace ? currentSpace.pinnedTabs : []}
@@ -393,6 +422,7 @@ function App() {
                 key={tab.id}
                 src={tab.src}
                 ref={tab.webview}
+                useragent={settings.ua}
                 className={`w-full h-full ${tab.id === browser.currentTabId ? '' : 'hidden'}`}
                 onPageFaviconUpdated={(favicons) => handleFaviconsUpdate(favicons, tab.id)}
                 onPageTitleUpdated={(title) => handleTitleUpdate(title, tab.id)}
