@@ -5,24 +5,33 @@ import {
   DropdownItem,
   DropdownMenu,
   DropdownTrigger,
-  Input,
+  Input, Tooltip,
   useDisclosure
 } from '@heroui/react';
-import { LuMenu, LuMoveLeft, LuMoveRight, LuPanelLeftClose, LuPanelLeftOpen, LuPlus, LuRotateCw } from 'react-icons/lu';
+import {
+  LuDownload,
+  LuMenu,
+  LuMoveLeft,
+  LuMoveRight,
+  LuPanelLeftClose,
+  LuPanelLeftOpen,
+  LuPlus,
+  LuRotateCw
+} from 'react-icons/lu';
 import { Tab } from '@renderer/lib/tab';
 import FavoriteTabCard from '@renderer/components/FavoriteTabCard';
 import TabRow from '@renderer/components/TabRow';
 import { isMac } from '@react-aria/utils';
 import { useRef } from 'react';
+import { Space } from '@renderer/lib/space';
 
 export interface BrowserSideBarProps {
   showSideBar: boolean;
   currentTab: Tab | null;
+  currentSpace: Space | null;
   favoriteTabs: Tab[];
   pinnedTabs: Tab[];
   tabs: Tab[];
-  spaceName: string;
-  spaceIcon: string;
   openNewTabModal: () => void;
   onTabClose: (tabId: string) => void;
   onTabSelect: (tabId: string) => void;
@@ -30,6 +39,7 @@ export interface BrowserSideBarProps {
   onTabPin: (tabId: string) => void;
   onPinGoSource: (tabId: string) => void;
   setSiteBarState: (state: boolean) => void;
+  spaces: Space[];
 }
 
 interface BrowserSideBarContentProps extends BrowserSideBarProps {}
@@ -38,11 +48,10 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
   const {
     showSideBar,
     currentTab,
+    currentSpace,
     favoriteTabs,
     pinnedTabs,
     tabs,
-    spaceName,
-    spaceIcon,
     openNewTabModal,
     onTabClose,
     onTabSelect,
@@ -50,6 +59,7 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
     onTabPin,
     onPinGoSource,
     setSiteBarState,
+    spaces,
   } = props;
 
   function handleGoBack() {
@@ -87,10 +97,11 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
   }
 
   return (
-    <div className={`h-full min-w-64 w-[15vw] ${className}`} style={{
+    <div className={`flex flex-col items-center justify-between h-full min-w-64 w-[15vw] ${className}`} style={{
       // @ts-expect-error electron attribute
       appRegion: 'drag',
     }} id="sidebar-container">
+      {/* Top Buttons */}
       <div className="flex flex-col w-full gap-2" style={{
         // @ts-expect-error electron attribute
         appRegion: 'no-drag',
@@ -115,15 +126,20 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
                 <DropdownItem key="more">More Settings Here</DropdownItem>
               </DropdownMenu>
             </Dropdown>
+
             {
               showSideBar ? (
-                <Button variant="light" isIconOnly size="sm" onPress={() => setSiteBarState(false)}>
-                  <LuPanelLeftClose size={20}/>
-                </Button>
+                <Tooltip size="sm" content="Hide Sidebar">
+                  <Button variant="light" isIconOnly size="sm" onPress={() => setSiteBarState(false)}>
+                    <LuPanelLeftClose size={20}/>
+                  </Button>
+                </Tooltip>
               ) : (
-                <Button variant="light" isIconOnly size="sm" onPress={() => setSiteBarState(true)}>
-                  <LuPanelLeftOpen size={20}/>
-                </Button>
+                <Tooltip size="sm" content="Show Sidebar">
+                  <Button variant="light" isIconOnly size="sm" onPress={() => setSiteBarState(true)}>
+                    <LuPanelLeftOpen size={20}/>
+                  </Button>
+                </Tooltip>
               )
             }
           </div>
@@ -135,9 +151,11 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
             <Button variant="light" isIconOnly size="sm" isDisabled={!canGoBack()} onPress={handleGoBack}>
               <LuMoveLeft size={20}/>
             </Button>
+
             <Button variant="light" isIconOnly size="sm" isDisabled={!canGoForward()} onPress={handleGoForward}>
               <LuMoveRight size={20}/>
             </Button>
+
             <Button variant="light" isIconOnly size="sm" onPress={handleReload}>
               <LuRotateCw size={20}/>
             </Button>
@@ -165,8 +183,8 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
 
         {/* Space Info */}
         <div className="flex flex-row w-full gap-2 pl-3 pr-1 items-center justify-start">
-          <img src={spaceIcon} alt="" className="w-4 select-none" draggable={false}/>
-          <p className="select-none text-sm font-semibold whitespace-nowrap text-ellipsis">{spaceName}</p>
+          <img src={currentSpace ? currentSpace.icon : ""} alt="" className="w-4 select-none" draggable={false}/>
+          <p className="select-none text-sm font-semibold whitespace-nowrap text-ellipsis">{currentSpace ? currentSpace.name : ""}</p>
         </div>
 
         {/* Pinned Tabs (in list) */}
@@ -218,6 +236,47 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
               />
             ))
           }
+        </div>
+      </div>
+
+      {/* Bottom Buttons */}
+      <div className="flex flex-col w-full gap-2" style={{
+        // @ts-expect-error electron attribute
+        appRegion: 'no-drag',
+      }}>
+        <div className="w-full flex flex-row justify-between items-center">
+          <Dropdown>
+            <DropdownTrigger>
+              <Button variant="light" isIconOnly size="sm">
+                <LuDownload size={20}/>
+              </Button>
+            </DropdownTrigger>
+            <DropdownMenu>
+              <DropdownItem key="d1">Download Item 1</DropdownItem>
+            </DropdownMenu>
+          </Dropdown>
+
+          <div className="flex flex-row w-full items-center justify-center gap-1">
+            {
+              spaces.map((space) => (
+                <Tooltip key={space.id} content={space.name} size="sm">
+                  <Button isIconOnly variant={currentSpace?.id === space.id ? "flat" : "light"} size="sm">
+                    <img
+                      alt=""
+                      src={space.icon}
+                      className="h-[50%]"
+                    />
+                  </Button>
+                </Tooltip>
+              ))
+            }
+          </div>
+
+          <Tooltip size="sm" content="New Space">
+            <Button variant="light" isIconOnly size="sm">
+              <LuPlus size={20}/>
+            </Button>
+          </Tooltip>
         </div>
       </div>
     </div>

@@ -434,17 +434,17 @@ function App() {
         <BrowserSideBar
           showSideBar={settings.showSideBar}
           currentTab={currentTab}
+          currentSpace={currentSpace}
           favoriteTabs={browser.favoriteTabs}
           pinnedTabs={currentSpace ? currentSpace.pinnedTabs : []}
           tabs={currentSpace ? currentSpace.tabs : []}
-          spaceIcon={currentSpace ? currentSpace.icon : ""}
-          spaceName={currentSpace ? currentSpace.name : "Default"}
           openNewTabModal={openNewTabModal}
           onTabClose={handleTabClose}
           onTabSelect={handleSelectTab}
           onTabPin={handlePinTab}
           onPinGoSource={handlePinGoSource}
           setSiteBarState={handleSetSiteBarState}
+          spaces={browser.spaces}
           className="p-2 pr-0"
         />
 
