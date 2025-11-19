@@ -18,7 +18,7 @@ function createWindow(): void {
     show: false,
     ...(isMac ? {
       titleBarStyle: 'hidden',
-      trafficLightPosition: { x: 20, y: 20 }
+      trafficLightPosition: { x: 17, y: 17 }
     } : {
       frame: false
     }),

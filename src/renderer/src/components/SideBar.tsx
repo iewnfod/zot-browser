@@ -4,6 +4,7 @@ import { TbReload } from 'react-icons/tb';
 import { Tab } from '@renderer/lib/tab';
 import FavoriteTabCard from '@renderer/components/FavoriteTabCard';
 import TabRow from '@renderer/components/TabRow';
+import { isMac } from '@react-aria/utils';
 
 export default function BrowserSideBar({
   showSideBar,
@@ -74,7 +75,7 @@ export default function BrowserSideBar({
         'app-region': 'no-drag',
       }}>
         {/* Actions */}
-        <div className="flex flex-row justify-between items-center" style={{
+        <div className={`flex flex-row justify-between items-center ${isMac() ? 'pl-20' : ''}`} style={{
           // @ts-expect-error electron attribute
           'app-region': 'drag',
         }}>
