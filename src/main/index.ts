@@ -2,11 +2,9 @@ import { app, shell, BrowserWindow, ipcMain } from 'electron';
 import { join } from 'path';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import icon from '../../resources/icon.png?asset';
-import * as http from 'node:http';
-import * as https from 'node:https';
-import { Buffer } from 'node:buffer';
 import { MenuTemplate } from './menu';
 import { Menu } from 'electron';
+import { getFaviconBase64 } from './favicon';
 
 const Store = require('electron-store').default;
 const store = new Store();
@@ -64,8 +62,8 @@ function createWindow(): void {
   });
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
-    return { action: 'deny' }
+    shell.openExternal(details.url);
+    return { action: 'deny' };
   });
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
@@ -85,25 +83,7 @@ app.whenReady().then(() => {
   ipcMain.on('ping', () => console.log('pong'));
 
   ipcMain.handle('get-favicon', async (_event, url: string) => {
-    return new Promise((resolve, reject) => {
-      const protocol = url.startsWith('https') ? https : http;
-      protocol.get(url, (response) => {
-        if (response.statusCode !== 200) {
-          reject(new Error(`Failed to fetch favicon. ${url} \nHTTP status code ${response.statusCode}`));
-          return;
-        }
-        const chunks: any[] = [];
-        response.on('data', (chunk) => {chunks.push(chunk);});
-        response.on('end', () => {
-          const buffer = Buffer.concat(chunks);
-          const contentType = response.headers['content-type'] || 'image/x-icon';
-          const dataUrl = `data:${contentType};base64,${buffer.toString('base64')}`;
-          resolve(dataUrl);
-        });
-      }).on('error', (err) => {
-        reject(err);
-      });
-    });
+    return getFaviconBase64(url);
   });
 
   ipcMain.handle('store-get', async (_, key) => {
