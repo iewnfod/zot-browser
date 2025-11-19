@@ -1,7 +1,7 @@
 import { isMac } from '@react-aria/utils';
 import { Button, Card } from '@heroui/react';
 import { LuMaximize, LuMinimize, LuMinus, LuX } from 'react-icons/lu';
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useEffect, useRef, useState } from 'react';
 
 export default function WebViewContainer({
   children,
@@ -12,6 +12,21 @@ export default function WebViewContainer({
 }) {
   const [showWindowButtons, setShowWindowButtons] = useState<boolean>(false);
   const [isMaximized, setIsMaximized] = useState<boolean>(false);
+
+  const closeTimeoutRef = useRef<NodeJS.Timeout>(null);
+
+  const handleMouseLeave = () => {
+    closeTimeoutRef.current = setTimeout(() => {
+      setShowWindowButtons(false);
+    }, 300);
+  };
+
+  const handleMouseEnter = () => {
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+      setShowWindowButtons(true);
+    }
+  };
 
   function getIsMaximized() {
     window.api.isMaximized().then((m) => {
@@ -37,14 +52,14 @@ export default function WebViewContainer({
         ) : (
           <div
             className={`
-              w-full h-2 hover:h-10 transition-all duration-300 ease-in-out
+              w-full ${showWindowButtons ? 'h-10' : 'h-2'} transition-all duration-300 ease-in-out
               flex flex-row justify-end items-center
             `}
-            onMouseEnter={() => setShowWindowButtons(true)}
-            onMouseLeave={() => setShowWindowButtons(false)}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
           >
             <div
-              className={`flex flex-row h-full ${showWindowButtons ? '' : 'hidden'}`}
+              className={`flex flex-row transition-all duration-300 ease-in-out ${showWindowButtons ? 'opacity-100 h-10' : 'opacity-0 h-0'}`}
             >
               <Button isIconOnly variant="light" onPress={window.api.minimize}>
                 <LuMinus size={20}/>
