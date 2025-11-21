@@ -41,6 +41,7 @@ export interface BrowserSideBarProps {
   setSiteBarState: (state: boolean) => void;
   spaces: Space[];
   width?: number;
+  openEditTabModal: (content: string) => void;
 }
 
 interface BrowserSideBarContentProps extends BrowserSideBarProps {}
@@ -62,6 +63,7 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
     setSiteBarState,
     spaces,
     width,
+    openEditTabModal,
   } = props;
 
   function handleGoBack() {
@@ -173,6 +175,7 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
           size="sm"
           className="pl-1 pr-1"
           placeholder="Search..."
+          onClick={() => openEditTabModal(currentTab ? currentTab.url : "")}
         />
 
         {/* Favorite Tabs (in card) */}

@@ -17,6 +17,7 @@ import { LoadMenuEvents, UnLoadMenuEvents } from '@renderer/lib/menu';
 import { getDefaultSettings, Settings } from '@renderer/lib/settings';
 import ResizeSidebarDivider from '@renderer/components/ResizeSidebarDivider';
 import InSecureHttpsCertificateModal from '@renderer/components/modals/InSecureHttpsCertificateModal';
+import useEditTabModal from '@renderer/components/modals/EditTabModal';
 
 function App() {
   const [browser, setBrowser] = useState<Browser>(CreateNewBrowser());
@@ -27,6 +28,12 @@ function App() {
   const [openNewTabModal, NewTabModal] = useNewTabModal(handleNewTab);
   const [settings, setSettings] = useState<Settings>(getDefaultSettings());
   const [isSettingsInitialized, setIsSettingsInitialized] = useState<boolean>(false);
+  const [openEditTabModal, setEditTabModalContent, EditTabModal] = useEditTabModal(handleEditCurrentTab);
+
+  function handleOpenEditTabModal(content: string) {
+    setEditTabModalContent(content);
+    openEditTabModal();
+  }
 
   function loadBrowserData() {
     window.store.get('browser').then((data) => {
@@ -311,6 +318,12 @@ function App() {
     });
   }
 
+  function handleEditCurrentTab(newUrl: string) {
+    if (currentTab) {
+      updateTabProperty(currentTab.id, {src: newUrl});
+    }
+  }
+
   const closeCurrentTab = useCallback(() => {
     console.log('Try delete current tab:', currentTab);
 
@@ -442,7 +455,6 @@ function App() {
 
   return (
     <div className="flex flex-col w-[100vw] h-[100vh]">
-      {NewTabModal}
       <div className={`flex flex-row w-fulls h-full grow gap-0`}>
         <BrowserSideBar
           showSideBar={settings.showSideBar}
@@ -459,6 +471,7 @@ function App() {
           setSiteBarState={handleSetSiteBarState}
           spaces={browser.spaces}
           width={settings.sidebarWidth}
+          openEditTabModal={handleOpenEditTabModal}
           className="p-2 pr-0"
         />
 
@@ -492,6 +505,8 @@ function App() {
 
       {/* Modals */}
       <InSecureHttpsCertificateModal/>
+      {EditTabModal}
+      {NewTabModal}
     </div>
   );
 }

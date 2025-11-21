@@ -7,17 +7,23 @@ import { SearchOption } from '@renderer/lib/search';
 export function NewTabModalContent({
   onNewTab,
   isOpen,
-  onOpenChange
+  onOpenChange,
+  inputContent
 } : {
   onNewTab: (url: string) => void;
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
+  inputContent?: string;
 }) {
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState<string>(inputContent || "");
   const [options, _setOptions] = useState<SearchOption[]>([]);
   const [selectOptionIndex, setSelectOptionIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const [shouldShowOptions, setShouldShowOptions] = useState<boolean>(false);
+
+  useEffect(() => {
+    setInput(inputContent || "");
+  }, [inputContent]);
 
   function setOptions(options: SearchOption[]) {
     if (options.length === 0) {
@@ -196,5 +202,5 @@ export default function useNewTabModal(onNewTab: (url: string) => void): [() => 
       isOpen={isOpen}
       onOpenChange={onOpenChange}
     />
-  ]
+  ];
 }
