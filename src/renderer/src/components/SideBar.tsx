@@ -9,20 +9,20 @@ import {
   useDisclosure
 } from '@heroui/react';
 import {
-  LuDownload,
+  LuDownload, LuLink,
   LuMenu,
   LuMoveLeft,
   LuMoveRight,
   LuPanelLeftClose,
   LuPanelLeftOpen,
   LuPlus,
-  LuRotateCw
+  LuRotateCw, LuSlidersHorizontal
 } from 'react-icons/lu';
 import { Tab } from '@renderer/lib/tab';
 import FavoriteTabCard from '@renderer/components/FavoriteTabCard';
 import TabRow from '@renderer/components/TabRow';
 import { isMac } from '@react-aria/utils';
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import { Space } from '@renderer/lib/space';
 
 export interface BrowserSideBarProps {
@@ -42,6 +42,7 @@ export interface BrowserSideBarProps {
   spaces: Space[];
   width?: number;
   openEditTabModal: (content: string) => void;
+  showFullUrl?: boolean;
 }
 
 interface BrowserSideBarContentProps extends BrowserSideBarProps {}
@@ -64,6 +65,7 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
     spaces,
     width,
     openEditTabModal,
+    showFullUrl,
   } = props;
 
   function handleGoBack() {
@@ -113,6 +115,18 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
       return false;
     }
   }
+
+  const displayUrl = useMemo(() => {
+    if (currentTab) {
+      if (showFullUrl) {
+        return currentTab.url;
+      } else {
+        return new URL(currentTab.url).host;
+      }
+    } else {
+      return "";
+    }
+  }, [showFullUrl, currentTab]);
 
   return (
     <div className={`flex flex-col items-center justify-between h-full w-[15vw] ${isMac() ? 'min-w-[250px]' : 'min-w-[150px]'} ${className}`} style={{
@@ -185,11 +199,34 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
 
         {/* URL Input */}
         <Input
-          value={currentTab ? currentTab.url : ""}
+          value={displayUrl}
           size="sm"
-          className="pl-1 pr-1"
+          className="pl-1 group overflow-hidden"
           placeholder="Search..."
-          onClick={() => openEditTabModal(currentTab ? currentTab.url : "")}
+          classNames={{
+            input: "whitespace-nowrap text-ellipsis w-full"
+          }}
+          endContent={
+            <div className="
+              hidden group-hover:flex flex-row gap-0
+              transition-all ease-in-out duration-300
+              translate-x-2 backdrop-blur-md rounded-medium
+            ">
+              <Button isIconOnly size="sm" variant="light" className="bg-transparent">
+                <LuLink size={14} className="text-neutral-700"/>
+              </Button>
+              <Button isIconOnly size="sm" variant="light">
+                <LuSlidersHorizontal size={14} className="text-neutral-700"/>
+              </Button>
+            </div>
+          }
+          onClick={() => {
+            if (currentTab) {
+              openEditTabModal(currentTab ? currentTab.url : "")
+            } else {
+              openNewTabModal();
+            }
+          }}
         />
 
         {/* Favorite Tabs (in card) */}
