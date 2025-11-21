@@ -16,6 +16,7 @@ import WebView from '@renderer/components/WebView';
 import { LoadMenuEvents, UnLoadMenuEvents } from '@renderer/lib/menu';
 import { getDefaultSettings, Settings } from '@renderer/lib/settings';
 import ResizeSidebarDivider from '@renderer/components/ResizeSidebarDivider';
+import InSecureHttpsCertificateModal from '@renderer/components/modals/InSecureHttpsCertificateModal';
 
 function App() {
   const [browser, setBrowser] = useState<Browser>(CreateNewBrowser());
@@ -488,6 +489,9 @@ function App() {
           }
         </WebViewContainer>
       </div>
+
+      {/* Modals */}
+      <InSecureHttpsCertificateModal/>
     </div>
   );
 }
