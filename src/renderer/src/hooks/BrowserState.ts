@@ -49,10 +49,26 @@ export function useBrowserState(initialBrowser?: Browser, settings?: Settings): 
   const [currentSpace, setCurrentSpace] = useState<Space | null>(null);
   const [tabSelectHistory, setTabSelectHistory] = useState<string[]>([]);
   const [isBrowserInitialized, setIsBrowserInitialized] = useState<boolean>(false)
-  const [allTabs, setAllTabs] = useState<Tab[]>([]);
-  const [favoriteTabs, setFavoriteTabs] = useState<Tab[]>([]);
-  const [pinnedTabs, setPinnedTabs] = useState<Tab[]>([]);
-  const [normalTabs, setNormalTabs] = useState<Tab[]>([]);
+
+  const allTabs = useMemo(() => Object.values(browser.tabs), [browser]);
+  const pinnedTabs = useMemo(() => {
+    if (currentSpace) {
+      return currentSpace.pinnedTabIds.map(id => browser.tabs[id]).filter(Boolean);
+    } else {
+      return [];
+    }
+  }, [browser, currentSpace]);
+  const normalTabs = useMemo(() => {
+    if (currentSpace) {
+      return currentSpace.tabIds.map(id => browser.tabs[id]).filter(Boolean);
+    } else {
+      return [];
+    }
+  }, [browser, currentSpace]);
+  const favoriteTabs = useMemo(
+    () => browser.favoriteTabIds.map(id => browser.tabs[id]).filter(Boolean),
+    [browser]
+  );
 
   const findTabById = useCallback((tabId: string) => {
     return browser.tabs[tabId] || null;
@@ -402,38 +418,6 @@ export function useBrowserState(initialBrowser?: Browser, settings?: Settings): 
       }
     }
   }, [browser, currentTab, updateTab]);
-
-  useEffect(() => {
-    setAllTabs(
-      Object.values(browser.tabs)
-    );
-  }, [browser]);
-
-  useEffect(() => {
-    setPinnedTabs(() => {
-      if (currentSpace) {
-        return currentSpace.pinnedTabIds.map(id => browser.tabs[id]).filter(Boolean);
-      } else {
-        return [];
-      }
-    });
-  }, [browser, currentSpace]);
-
-  useEffect(() => {
-    setNormalTabs(() => {
-      if (currentSpace) {
-        return currentSpace.tabIds.map(id => browser.tabs[id]).filter(Boolean);
-      } else {
-        return [];
-      }
-    });
-  }, [browser, currentSpace]);
-
-  useEffect(() => {
-    setFavoriteTabs(
-      browser.favoriteTabIds.map(id => browser.tabs[id]).filter(Boolean),
-    )
-  }, [browser]);
 
   return {
     browser,
