@@ -1,5 +1,6 @@
 import { RefObject } from 'react';
 import { WebViewMethods } from '@renderer/lib/webview';
+import { DEFAULT_CLEAR_TAB_INTERVAL } from '@renderer/lib/settings';
 
 export interface Tab {
   id: string;
@@ -10,6 +11,7 @@ export interface Tab {
   webview: RefObject<WebViewMethods | null>;
   lastAccessed?: number;
   pinnedUrl?: string;
+  shouldRender?: boolean;
 }
 
 export interface SerializableTab {
@@ -45,6 +47,7 @@ export function CreateNewTab(src: string) {
     webview: {current: null},
     lastAccessed: Date.now(),
     pinnedUrl: "",
+    shouldRender: false,
   } as Tab;
 }
 
@@ -69,5 +72,24 @@ export function deserializeTab(tab: SerializableTab): Tab {
     webview: {current: null},
     lastAccessed: tab.lastAccessed,
     pinnedUrl: tab.pinnedUrl,
+    shouldRender: false,
   };
+}
+
+export function recycleOldTabs(props: {
+  allTabs: Tab[],
+  currentTabId?: string,
+  makeTabNotRender: (tabId: string) => void,
+  interval?: number
+}) {
+  const now = Date.now();
+  const inter = props.interval || DEFAULT_CLEAR_TAB_INTERVAL;
+  props.allTabs.forEach((tab: Tab) => {
+    if (props.currentTabId !== tab.id && tab.shouldRender) {  // can be cleared
+      if (tab.lastAccessed && (now - tab.lastAccessed) > inter) {
+        console.log("Clear Tab: ", tab);
+        props.makeTabNotRender(tab.id);
+      }
+    }
+  });
 }

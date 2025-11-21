@@ -8,7 +8,7 @@ import {
   serializeBrowser
 } from '@renderer/lib/browser';
 import BrowserSideBar from '@renderer/components/SideBar';
-import { CreateNewTab, Tab, upgradeTabToPinnedTab } from '@renderer/lib/tab';
+import { CreateNewTab, recycleOldTabs, Tab, upgradeTabToPinnedTab } from '@renderer/lib/tab';
 import { Space } from '@renderer/lib/space';
 import useNewTabModal from '@renderer/components/modals/NewTabModal';
 import WebViewContainer from '@renderer/components/WebViewContainer';
@@ -249,6 +249,7 @@ function App() {
   function handleSelectTab(tabId: string) {
     const tabData = findTabById(tabId);
     if (!tabData) return;
+    updateTabProperty(tabId, { lastAccessed: Date.now() });
     if (!Array.isArray(tabData)) {
       setBrowser(prevBrowser => {
         const newBrowser = {...prevBrowser};
@@ -382,6 +383,18 @@ function App() {
     });
   }, [settings]);
 
+  const recycleOldTabsCallback = useCallback(() => {
+    console.log("Recycle Old Tabs");
+    recycleOldTabs({
+      allTabs,
+      currentTabId: browser.currentTabId,
+      makeTabNotRender: (tabId) => {
+        updateTabProperty(tabId, {shouldRender: false});
+      },
+      interval: settings.clearTabInterval
+    });
+  }, [allTabs, browser, settings]);
+
   useEffect(() => {
     // data
     // window.store.delete("browser");
@@ -389,6 +402,17 @@ function App() {
     loadBrowserData();
     loadSettingsData();
   }, []);
+
+  useEffect(() => {
+    // recycle old tabs every 10 seconds
+    const intervalId = setInterval(() => {
+      recycleOldTabsCallback();
+    }, 10000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [recycleOldTabsCallback]);
 
   useEffect(() => {
     // menu
@@ -449,6 +473,9 @@ function App() {
         }
 
         if (tab) {
+          if (!tab.shouldRender) {
+            updateTabProperty(tab.id, {shouldRender: true});
+          }
           setCurrentTab(tab);
         } else {
           setCurrentTab(null);
@@ -499,16 +526,18 @@ function App() {
         <WebViewContainer isLoading={isCurrentTabLoading}>
           {
             allTabs.map((tab) => (
-              <WebView
-                key={tab.id}
-                src={tab.src}
-                ref={tab.webview}
-                useragent={settings.ua}
-                className={`w-full h-full ${tab.id === browser.currentTabId ? '' : 'hidden'}`}
-                onPageFaviconUpdated={(favicons) => handleFaviconsUpdate(favicons, tab.id)}
-                onPageTitleUpdated={(title) => handleTitleUpdate(title, tab.id)}
-                onLoadCommit={(url, isMainFrame) => handleLoadCommit(url, isMainFrame, tab.id)}
-              />
+              (tab.shouldRender && (
+                <WebView
+                  key={tab.id}
+                  src={tab.src}
+                  ref={tab.webview}
+                  useragent={settings.ua}
+                  className={`w-full h-full ${tab.id === browser.currentTabId ? '' : 'hidden'}`}
+                  onPageFaviconUpdated={(favicons) => handleFaviconsUpdate(favicons, tab.id)}
+                  onPageTitleUpdated={(title) => handleTitleUpdate(title, tab.id)}
+                  onLoadCommit={(url, isMainFrame) => handleLoadCommit(url, isMainFrame, tab.id)}
+                />
+              ))
             ))
           }
         </WebViewContainer>
