@@ -244,6 +244,7 @@ function App() {
           spaces={Object.values(browser.spaces)}
           width={settings.sidebarWidth}
           openEditTabModal={handleOpenEditTabModal}
+          showFullUrl={settings.showFullUrl}
           className="p-2 pr-0"
         />
 
