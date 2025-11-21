@@ -27,7 +27,7 @@ function App() {
     selectTab,
     updateTab,
     pinTab,
-    // unpinTab,
+    unpinTab,
     // addTabToFavorite,
     // removeTabFromFavorite,
     //
@@ -239,6 +239,7 @@ function App() {
           onTabClose={closeTab}
           onTabSelect={selectTab}
           onTabPin={pinTab}
+          onTabUnpin={unpinTab}
           setSiteBarState={handleSetSiteBarState}
           spaces={Object.values(browser.spaces)}
           width={settings.sidebarWidth}

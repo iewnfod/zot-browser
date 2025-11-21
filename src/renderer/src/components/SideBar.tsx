@@ -37,6 +37,7 @@ export interface BrowserSideBarProps {
   onTabSelect: (tabId: string) => void;
   className?: string;
   onTabPin: (tabId: string) => void;
+  onTabUnpin: (tabId: string) => void;
   setSiteBarState: (state: boolean) => void;
   spaces: Space[];
   width?: number;
@@ -58,6 +59,7 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
     onTabSelect,
     className,
     onTabPin,
+    onTabUnpin,
     setSiteBarState,
     spaces,
     width,
@@ -216,6 +218,7 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
                 onSelect={() => onTabSelect(tab.id)}
                 isSelected={currentTab ? currentTab.id === tab.id : false}
                 isPinned={true}
+                onUnpin={() => onTabUnpin(tab.id)}
               />
             ))
           }

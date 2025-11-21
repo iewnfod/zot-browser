@@ -10,6 +10,7 @@ export default function TabRow({
   isSelected = false,
   isPinned = false,
   onPin,
+  onUnpin,
 } : {
   tab: Tab,
   onTabClose: () => void,
@@ -17,12 +18,19 @@ export default function TabRow({
   isSelected?: boolean;
   isPinned?: boolean;
   onPin?: () => void;
+  onUnpin?: () => void;
 }) {
   return (
     <ContextMenu menuItems={[
-      <Button variant="light" onPress={onPin} isDisabled={isPinned} size="sm">
-        Pin
-      </Button>,
+      isPinned ? (
+        <Button variant="light" onPress={onUnpin} size="sm">
+          Unpin
+        </Button>
+      ) : (
+        <Button variant="light" onPress={onPin} size="sm">
+          Pin
+        </Button>
+      ),
       <Button variant="light" onPress={onSelect} isDisabled={isSelected} size="sm">
         Select
       </Button>,
