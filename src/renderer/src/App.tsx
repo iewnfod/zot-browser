@@ -29,6 +29,7 @@ function App() {
   const [settings, setSettings] = useState<Settings>(getDefaultSettings());
   const [isSettingsInitialized, setIsSettingsInitialized] = useState<boolean>(false);
   const [openEditTabModal, setEditTabModalContent, EditTabModal] = useEditTabModal(handleEditCurrentTab);
+  const [isCurrentTabLoading, setIsCurrentTabLoading] = useState<boolean>(false);
 
   function handleOpenEditTabModal(content: string) {
     setEditTabModalContent(content);
@@ -418,6 +419,16 @@ function App() {
   }, [settings, isSettingsInitialized]);
 
   useEffect(() => {
+    if (currentTab && currentTab.webview.current) {
+      try {
+        setIsCurrentTabLoading(currentTab.webview.current.isLoading());
+      } catch (_e) {}
+    } else {
+      setIsCurrentTabLoading(false);
+    }
+  }, [currentTab]);
+
+  useEffect(() => {
     const space = browser.spaces.find((s) => s.id === browser.currentSpaceId);
     if (space) {
       setCurrentSpace(space);
@@ -485,7 +496,7 @@ function App() {
         }
 
         {/* WebView */}
-        <WebViewContainer>
+        <WebViewContainer isLoading={isCurrentTabLoading}>
           {
             allTabs.map((tab) => (
               <WebView
