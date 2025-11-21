@@ -99,7 +99,7 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
   }
 
   return (
-    <div className={`flex flex-col items-center justify-between h-full w-[15vw] ${isMac() ? 'min-w-[250px]' : 'min-w-[200px]'} ${className}`} style={{
+    <div className={`flex flex-col items-center justify-between h-full w-[15vw] ${isMac() ? 'min-w-[250px]' : 'min-w-[150px]'} ${className}`} style={{
       width: width,
       // @ts-expect-error electron attribute
       appRegion: 'drag',

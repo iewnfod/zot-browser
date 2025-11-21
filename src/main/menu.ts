@@ -13,7 +13,7 @@ function emitEvent(window: BrowserWindow, eventName: string) {
 export function MenuTemplate(mainWindow: BrowserWindow) {
   const MenuTemplate: (MenuItemConstructorOptions | MenuItem)[] = [
     {
-      label: 'zot-browser',
+      label: 'Zot Browser',
       role: 'appMenu'
     },
     {
