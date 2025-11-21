@@ -5,7 +5,7 @@ export interface Settings {
   clearTabInterval?: number;
 }
 
-export const DEFAULT_CLEAR_TAB_INTERVAL = 300 * 1000;  // default 5 min
+export const DEFAULT_CLEAR_TAB_INTERVAL = 60 * 1000;  // default 1 min
 
 export function getDefaultSettings() {
   return {

@@ -37,7 +37,6 @@ export interface BrowserSideBarProps {
   onTabSelect: (tabId: string) => void;
   className?: string;
   onTabPin: (tabId: string) => void;
-  onPinGoSource: (tabId: string) => void;
   setSiteBarState: (state: boolean) => void;
   spaces: Space[];
   width?: number;
@@ -59,7 +58,6 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
     onTabSelect,
     className,
     onTabPin,
-    onPinGoSource,
     setSiteBarState,
     spaces,
     width,
@@ -68,25 +66,35 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
 
   function handleGoBack() {
     if (currentTab && currentTab.webview.current) {
-      currentTab.webview.current.goBack();
+      try {
+        currentTab.webview.current.goBack();
+      } catch (_) {}
     }
   }
 
   function handleGoForward() {
     if (currentTab && currentTab.webview.current) {
-      currentTab.webview.current.goForward();
+      try {
+        currentTab.webview.current.goForward();
+      } catch (_) {}
     }
   }
 
   function handleReload() {
     if (currentTab && currentTab.webview.current) {
-      currentTab.webview.current.reload();
+      try {
+        currentTab.webview.current.reload();
+      } catch (_) {}
     }
   }
 
   function canGoForward() {
     if (currentTab && currentTab.webview.current) {
-      return currentTab.webview.current.canGoForward();
+      try {
+        return currentTab.webview.current.canGoForward();
+      } catch (_) {
+        return false;
+      }
     } else {
       return false;
     }
@@ -94,7 +102,11 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
 
   function canGoBack() {
     if (currentTab && currentTab.webview.current) {
-      return currentTab.webview.current.canGoBack();
+      try {
+        return currentTab.webview.current.canGoBack();
+      } catch (_) {
+        return false;
+      }
     } else {
       return false;
     }
@@ -204,7 +216,6 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
                 onSelect={() => onTabSelect(tab.id)}
                 isSelected={currentTab ? currentTab.id === tab.id : false}
                 isPinned={true}
-                onPinGoSource={() => onPinGoSource(tab.id)}
               />
             ))
           }

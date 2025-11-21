@@ -1,44 +1,64 @@
 import { deserializeTab, SerializableTab, serializeTab, Tab } from '@renderer/lib/tab';
-import { CreateNewSpace, deserializeSpace, SerializableSpace, serializeSpace, Space } from '@renderer/lib/space';
+import { NewDefaultSpace, Space } from '@renderer/lib/space';
 
 export interface Browser {
-  favoriteTabs: Tab[],
-  spaces: Space[];
+  tabs: Record<string, Tab>;
+  spaces: Record<string, Space>;
+
+  favoriteTabIds: string[];
   currentTabId?: string;
   currentSpaceId?: string;
 }
 
 export interface SerializableBrowser {
-  favoriteTabs: SerializableTab[];
-  spaces: SerializableSpace[];
+  tabs: Record<string, SerializableTab>;
+  spaces: Record<string, Space>;
+
+  favoriteTabIds: string[];
   currentTabId?: string;
   currentSpaceId?: string;
 }
 
 export function serializeBrowser(browser: Browser): SerializableBrowser {
+  const serializedTabs: Record<string, SerializableTab> = {};
+  for (const [tabId, tab] of Object.entries(browser.tabs)) {
+    serializedTabs[tabId] = serializeTab(tab);
+  }
+
   return {
-    favoriteTabs: browser.favoriteTabs.map(t => serializeTab(t)),
-    spaces: browser.spaces.map(s => serializeSpace(s)),
+    tabs: serializedTabs,
+    spaces: browser.spaces,
+
+    favoriteTabIds: browser.favoriteTabIds,
     currentTabId: browser.currentTabId,
     currentSpaceId: browser.currentSpaceId,
   };
 }
 
 export function deserializeBrowser(browser: SerializableBrowser): Browser {
+  const deserializedTabs: Record<string, Tab> = {};
+  for (const [tabId, tab] of Object.entries(browser.tabs)) {
+    deserializedTabs[tabId] = deserializeTab(tab);
+  }
+
   return {
-    favoriteTabs: browser.favoriteTabs.map(t => deserializeTab(t)),
-    spaces: browser.spaces.map(s => deserializeSpace(s)),
+    tabs: deserializedTabs,
+    spaces: browser.spaces,
+    favoriteTabIds: browser.favoriteTabIds,
     currentTabId: browser.currentTabId,
     currentSpaceId: browser.currentSpaceId,
   };
 }
 
 export function CreateNewBrowser(): Browser {
-  const defaultSpace = CreateNewSpace();
+  const defaultSpace = NewDefaultSpace();
 
   return {
-    favoriteTabs: [],
-    spaces: [defaultSpace],
+    tabs: {},
+    spaces: {
+      [defaultSpace.id]: defaultSpace
+    },
+    favoriteTabIds: [],
     currentSpaceId: defaultSpace.id
   };
 }

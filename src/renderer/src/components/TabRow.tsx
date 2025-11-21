@@ -10,7 +10,6 @@ export default function TabRow({
   isSelected = false,
   isPinned = false,
   onPin,
-  onPinGoSource,
 } : {
   tab: Tab,
   onTabClose: () => void,
@@ -18,7 +17,6 @@ export default function TabRow({
   isSelected?: boolean;
   isPinned?: boolean;
   onPin?: () => void;
-  onPinGoSource?: () => void;
 }) {
   return (
     <ContextMenu menuItems={[
@@ -59,7 +57,7 @@ export default function TabRow({
           isPinned ? (
             <Button
               isIconOnly
-              onPress={onPinGoSource}
+              onPress={onTabClose}
               className={`${isSelected ? 'bg-neutral-200' : ''}`}
             >
               <LuMinus/>

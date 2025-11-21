@@ -12,6 +12,9 @@ export interface Tab {
   lastAccessed?: number;
   pinnedUrl?: string;
   shouldRender?: boolean;
+  isPinned?: boolean;
+  isFavorite?: boolean;
+  spaceId?: string;
 }
 
 export interface SerializableTab {
@@ -21,19 +24,16 @@ export interface SerializableTab {
   favicon: string;
   lastAccessed?: number;
   pinnedUrl?: string;
+  isPinned?: boolean;
+  isFavorite?: boolean;
+  spaceId?: string;
 }
 
 export function upgradeTabToPinnedTab(tab: Tab): Tab {
   return {
     ...tab,
     pinnedUrl: tab.url,
-  };
-}
-
-export function downgradePinnedTabToTab(tab: Tab): Tab {
-  return {
-    ...tab,
-    pinnedUrl: tab.url
+    isPinned: tab.isPinned,
   };
 }
 
@@ -48,6 +48,8 @@ export function CreateNewTab(src: string) {
     lastAccessed: Date.now(),
     pinnedUrl: "",
     shouldRender: false,
+    isPinned: false,
+    isFavorite: false,
   } as Tab;
 }
 
@@ -59,6 +61,9 @@ export function serializeTab(tab: Tab): SerializableTab {
     favicon: tab.favicon,
     lastAccessed: tab.lastAccessed,
     pinnedUrl: tab.pinnedUrl,
+    isPinned: tab.isPinned,
+    isFavorite: tab.isFavorite,
+    spaceId: tab.spaceId,
   };
 }
 
@@ -73,6 +78,9 @@ export function deserializeTab(tab: SerializableTab): Tab {
     lastAccessed: tab.lastAccessed,
     pinnedUrl: tab.pinnedUrl,
     shouldRender: false,
+    isPinned: tab.isPinned,
+    isFavorite: tab.isFavorite,
+    spaceId: tab.spaceId,
   };
 }
 
@@ -85,9 +93,9 @@ export function recycleOldTabs(props: {
   const now = Date.now();
   const inter = props.interval || DEFAULT_CLEAR_TAB_INTERVAL;
   props.allTabs.forEach((tab: Tab) => {
-    if (props.currentTabId !== tab.id && tab.shouldRender) {  // can be cleared
+    if (props.currentTabId !== tab.id && tab.shouldRender) {
       if (tab.lastAccessed && (now - tab.lastAccessed) > inter) {
-        console.log("Clear Tab: ", tab);
+        console.log("Clear tab:", tab);
         props.makeTabNotRender(tab.id);
       }
     }
