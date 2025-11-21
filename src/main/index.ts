@@ -1,13 +1,12 @@
-import { app, shell, BrowserWindow, ipcMain, screen } from 'electron';
+import { app, BrowserWindow, ipcMain, screen } from 'electron';
 import { join } from 'path';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import icon from '../../resources/icon.png?asset';
 import { MenuTemplate } from './menu';
 import { Menu } from 'electron';
-import { getFaviconBase64 } from './favicon';
-
-const Store = require('electron-store').default;
-const store = new Store();
+import { loadFaviconEvents } from './favicon';
+import { loadWebContentEvents } from './webcontent';
+import { loadStoreEvents } from './storage';
 
 function createWindow(): void {
   const isMac = process.platform === 'darwin';
@@ -35,7 +34,7 @@ function createWindow(): void {
   });
 
   const menu = Menu.buildFromTemplate(MenuTemplate(mainWindow));
-  mainWindow.setMenu(menu);
+  Menu.setApplicationMenu(menu);
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show();
@@ -61,11 +60,6 @@ function createWindow(): void {
     mainWindow.close();
   });
 
-  mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url);
-    return { action: 'deny' };
-  });
-
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL']);
   } else {
@@ -76,32 +70,17 @@ function createWindow(): void {
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.iewnfod.zot-browser');
 
+  loadWebContentEvents();
+
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window);
   });
 
   ipcMain.on('ping', () => console.log('pong'));
 
-  ipcMain.handle('get-favicon', async (_event, url: string) => {
-    return getFaviconBase64(url);
-  });
+  loadFaviconEvents();
 
-  ipcMain.handle('store-get', async (_, key) => {
-    return store.get(key);
-  });
-
-  ipcMain.handle('store-set', async (_, key, value) => {
-    store.set(key, value);
-    return true;
-  });
-
-  ipcMain.handle('store-has', async (_, key) => {
-    return store.has(key);
-  });
-
-  ipcMain.handle('store-delete', async (_, key) => {
-    return store.delete(key);
-  });
+  loadStoreEvents();
 
   ipcMain.handle('scale-factor', () => {
     return screen.getPrimaryDisplay().scaleFactor;

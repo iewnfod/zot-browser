@@ -1,6 +1,7 @@
 import https from 'node:https';
 import http from 'node:http';
 import { Buffer } from 'node:buffer';
+import { ipcMain } from 'electron';
 
 const faviconCache = new Map<string, string>();
 
@@ -29,5 +30,11 @@ export async function getFaviconBase64(url: string): Promise<string> {
     }).on('error', (err) => {
       reject(err);
     });
+  });
+}
+
+export function loadFaviconEvents() {
+  ipcMain.handle('get-favicon', async (_event, url: string) => {
+    return getFaviconBase64(url);
   });
 }

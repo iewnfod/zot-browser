@@ -1,6 +1,9 @@
 import MenuItemConstructorOptions = Electron.MenuItemConstructorOptions;
 import MenuItem = Electron.MenuItem;
-import { BrowserWindow } from 'electron';
+import { BrowserWindow, dialog } from 'electron';
+
+const Store = require('electron-store').default;
+const menuStore = new Store();
 
 function emitEvent(window: BrowserWindow, eventName: string) {
   console.log(`Emit ${eventName}`);
@@ -10,11 +13,17 @@ function emitEvent(window: BrowserWindow, eventName: string) {
 export function MenuTemplate(mainWindow: BrowserWindow) {
   const MenuTemplate: (MenuItemConstructorOptions | MenuItem)[] = [
     {
+      label: 'Zot Browser',
+      role: 'appMenu'
+    },
+    {
       label: 'Edit',
       submenu: [
         { label: 'Copy', role: 'copy' },
         { label: 'Paste', role: 'paste' },
         { label: 'Undo', role: 'undo' },
+        { label: 'Redo', role: 'redo' },
+        { label: 'Select All', role: 'selectAll' }
       ]
     },
     {
@@ -66,6 +75,29 @@ export function MenuTemplate(mainWindow: BrowserWindow) {
           accelerator: 'Shift+F12',
           click: () => emitEvent(mainWindow, 'menu-open-electron-developer')
         },
+        { type: 'separator' },
+        {
+          label: 'Clear Trusted Certificates',
+          click: async () => {
+            const { response } = await dialog.showMessageBox(mainWindow, {
+              type: 'question',
+              title: '清除已信任证书',
+              message: '确定要清除所有已信任的证书吗？',
+              buttons: ['清除', '取消'],
+              defaultId: 1,
+              cancelId: 1,
+              noLink: true,
+            });
+            if (response === 0) {
+              menuStore.delete('allowedCertificates');
+              await dialog.showMessageBox(mainWindow, {
+                type: 'info',
+                message: '已清除已信任的证书。',
+                buttons: ['确定']
+              });
+            }
+          }
+        }
       ]
     }
   ];

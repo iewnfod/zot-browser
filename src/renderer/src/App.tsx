@@ -410,7 +410,10 @@ function App() {
 
       if (browser.currentTabId) {
         const tabData = findTabById(browser.currentTabId, browser, space);
-        if (!tabData) return;
+        if (!tabData) {
+          setCurrentTab(null);
+          return;
+        }
 
         let tab: Tab | null = null;
         if (!Array.isArray(tabData)) {
