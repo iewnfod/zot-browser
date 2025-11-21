@@ -13,7 +13,7 @@ export function normalizeUrl(input: string): string {
     return 'https://www.google.com';
   }
 
-  const specialProtocols = ['http:', 'https:', 'file:', 'ftp:', 'chrome:', 'about:'];
+  const specialProtocols = ['http:', 'https:', 'file:', 'ftp:', 'chrome:', 'about:', 'mailto:'];
   const hasKnownProtocol = specialProtocols.some(protocol =>
     trimmedInput.toLowerCase().startsWith(protocol)
   );
@@ -35,23 +35,37 @@ export function normalizeUrl(input: string): string {
     return `file:///${trimmedInput.replace(/\\/g, '/')}`;
   }
 
-  const domainRegex = /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
-  if (domainRegex.test(trimmedInput) &&
-    !trimmedInput.includes(' ') &&
-    trimmedInput.length > 1) {
+  if (/^\d+$/.test(trimmedInput)) {
+    return googleSearch(trimmedInput);
+  }
+
+  if (!trimmedInput.includes('.') &&
+    !trimmedInput.includes(':') &&
+    trimmedInput.toLowerCase() !== 'localhost') {
+    return googleSearch(trimmedInput);
+  }
+
+  if (!trimmedInput.includes(' ')) {
     try {
-      const url = new URL(`https://${trimmedInput}`);
-      return url.href;
+      let protocol = 'https://';
+      const ipRegex = /^(\d{1,3}\.){3}\d{1,3}(:\d+)?$|^\[[\da-fA-F:]+\](:\d+)?$/;
+      if (ipRegex.test(trimmedInput) || trimmedInput.toLowerCase().startsWith('localhost')) {
+        protocol = 'http://';
+      }
+      const url = new URL(`${protocol}${trimmedInput}`);
+      if (url.hostname.includes('.') ||
+        url.hostname === 'localhost' ||
+        ipRegex.test(url.hostname)) {
+        return url.href;
+      }
     } catch (e) {
       console.log(`Invalid URL: ${e}`);
     }
   }
+  return googleSearch(trimmedInput);
+}
 
-  const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
-  if (ipRegex.test(trimmedInput)) {
-    return `http://${trimmedInput}`;
-  }
-
-  const encodedQuery = encodeURIComponent(trimmedInput);
+function googleSearch(query: string): string {
+  const encodedQuery = encodeURIComponent(query);
   return `https://www.google.com/search?q=${encodedQuery}`;
 }
