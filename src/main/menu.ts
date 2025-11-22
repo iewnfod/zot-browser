@@ -5,9 +5,9 @@ import { BrowserWindow, dialog } from 'electron';
 const Store = require('electron-store').default;
 const menuStore = new Store();
 
-function emitEvent(window: BrowserWindow, eventName: string) {
+function emitEvent(window: BrowserWindow, eventName: string, ...args: any[]) {
   console.log(`Emit ${eventName}`);
-  window.webContents.send(eventName);
+  window.webContents.send(eventName, ...args);
 }
 
 export function MenuTemplate(mainWindow: BrowserWindow) {
@@ -63,6 +63,56 @@ export function MenuTemplate(mainWindow: BrowserWindow) {
           label: 'Go Forward',
           accelerator: 'CmdOrCtrl+]',
           click: () => emitEvent(mainWindow, 'menu-tab-go-forward')
+        },
+        {
+          label: 'Select',
+          submenu: [
+            {
+              label: 'Tab 1',
+              accelerator: 'CmdORCtrl+1',
+              click: () => emitEvent(mainWindow, 'menu-select-tab', 0)
+            },
+            {
+              label: 'Tab 2',
+              accelerator: 'CmdORCtrl+2',
+              click: () => emitEvent(mainWindow, 'menu-select-tab', 1)
+            },
+            {
+              label: 'Tab 3',
+              accelerator: 'CmdORCtrl+3',
+              click: () => emitEvent(mainWindow, 'menu-select-tab', 2)
+            },
+            {
+              label: 'Tab 4',
+              accelerator: 'CmdORCtrl+4',
+              click: () => emitEvent(mainWindow, 'menu-select-tab', 3)
+            },
+            {
+              label: 'Tab 5',
+              accelerator: 'CmdORCtrl+5',
+              click: () => emitEvent(mainWindow, 'menu-select-tab', 4)
+            },
+            {
+              label: 'Tab 6',
+              accelerator: 'CmdORCtrl+6',
+              click: () => emitEvent(mainWindow, 'menu-select-tab', 5)
+            },
+            {
+              label: 'Tab 7',
+              accelerator: 'CmdORCtrl+7',
+              click: () => emitEvent(mainWindow, 'menu-select-tab', 6)
+            },
+            {
+              label: 'Tab 8',
+              accelerator: 'CmdORCtrl+8',
+              click: () => emitEvent(mainWindow, 'menu-select-tab', 7)
+            },
+            {
+              label: 'Last Tab',
+              accelerator: 'CmdORCtrl+9',
+              click: () => emitEvent(mainWindow, 'menu-select-last-tab')
+            },
+          ]
         }
       ]
     },

@@ -30,11 +30,13 @@ function App() {
     unpinTab,
     // addTabToFavorite,
     // removeTabFromFavorite,
-    //
+    selectLastTab,
+    selectTabByIndex,
+
     // createSpace,
     // selectSpace,
     // updateSpace,
-    //
+
     // findTabById,
     // getSpaceTabs,
     recycleOldTabs
@@ -53,7 +55,9 @@ function App() {
       reloadCurrentTab,
       currentTabGoBack,
       currentTabGoForward,
-      toggleSideBar
+      toggleSideBar,
+      selectTabByIndex,
+      selectLastTab
     });
 
     return () => {

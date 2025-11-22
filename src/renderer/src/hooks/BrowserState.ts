@@ -31,6 +31,9 @@ export interface UseBrowserStateReturn {
   unpinTab: (tabId: string) => void;
   addTabToFavorite: (tabId: string) => void;
   removeTabFromFavorite: (tabId: string) => void;
+  // advanced tab actions
+  selectLastTab: () => void;
+  selectTabByIndex: (index: number) => void;
 
   // space
   createSpace: (name?: string, icon?: string) => Space;
@@ -48,7 +51,7 @@ export function useBrowserState(initialBrowser?: Browser, settings?: Settings): 
   const [currentTab, setCurrentTab] = useState<Tab | null>(null);
   const [currentSpace, setCurrentSpace] = useState<Space | null>(null);
   const [tabSelectHistory, setTabSelectHistory] = useState<string[]>([]);
-  const [isBrowserInitialized, setIsBrowserInitialized] = useState<boolean>(false)
+  const [isBrowserInitialized, setIsBrowserInitialized] = useState<boolean>(false);
 
   const allTabs = useMemo(() => Object.values(browser.tabs), [browser]);
   const pinnedTabs = useMemo(() => {
@@ -68,6 +71,10 @@ export function useBrowserState(initialBrowser?: Browser, settings?: Settings): 
   const favoriteTabs = useMemo(
     () => browser.favoriteTabIds.map(id => browser.tabs[id]).filter(Boolean),
     [browser]
+  );
+  const allCurrentSpaceTabs = useMemo(
+    () => favoriteTabs.concat(pinnedTabs).concat(normalTabs),
+    [favoriteTabs, pinnedTabs, normalTabs]
   );
 
   const findTabById = useCallback((tabId: string) => {
@@ -369,6 +376,22 @@ export function useBrowserState(initialBrowser?: Browser, settings?: Settings): 
     });
   }, [allTabs, browser, updateTab, settings]);
 
+  const selectLastTab = useCallback(() => {
+    if (allCurrentSpaceTabs.length > 0) {
+      const lastTab = allCurrentSpaceTabs[allCurrentSpaceTabs.length - 1];
+      selectTab(lastTab.id);
+    }
+  }, [allCurrentSpaceTabs, selectTab]);
+
+  const selectTabByIndex = useCallback((index: number) => {
+    const tab = allCurrentSpaceTabs[index];
+    if (tab) {
+      selectTab(tab.id);
+    } else {
+      selectLastTab();
+    }
+  }, [allCurrentSpaceTabs, selectTab, selectLastTab]);
+
   useEffect(() => {
     if (browser.currentSpaceId && browser.spaces[browser.currentSpaceId]) {
       setCurrentSpace(browser.spaces[browser.currentSpaceId]);
@@ -436,6 +459,8 @@ export function useBrowserState(initialBrowser?: Browser, settings?: Settings): 
     unpinTab,
     addTabToFavorite,
     removeTabFromFavorite,
+    selectLastTab,
+    selectTabByIndex,
 
     createSpace,
     selectSpace,
