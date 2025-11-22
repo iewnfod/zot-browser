@@ -29,7 +29,8 @@ function createWindow(): void {
       webviewTag: true,
       nodeIntegration: false,
       contextIsolation: true,
-      spellcheck: false
+      spellcheck: false,
+      partition: 'persist:shared-partition'
     }
   });
 

@@ -267,6 +267,7 @@ function App() {
                   src={tab.src}
                   ref={tab.webview}
                   useragent={settings.ua}
+                  partition="persist:shared-partition"
                   className={`w-full h-full ${tab.id === browser.currentTabId ? '' : 'hidden'}`}
                   onPageFaviconUpdated={(favicons) => handleFaviconsUpdate(favicons, tab.id)}
                   onPageTitleUpdated={(title) => handleTitleUpdate(title, tab.id)}
