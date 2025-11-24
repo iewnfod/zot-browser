@@ -10,6 +10,7 @@ const api = {
   minimize: () => ipcRenderer.invoke('minimize'),
   unmaximize: () => ipcRenderer.invoke('unmaximize'),
   close: () => ipcRenderer.invoke('close'),
+  focus: () => ipcRenderer.invoke('focus'),
   scaleFactor: () => ipcRenderer.invoke('scale-factor')
 };
 

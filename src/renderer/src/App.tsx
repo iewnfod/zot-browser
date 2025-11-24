@@ -39,7 +39,7 @@ function App() {
 
     // findTabById,
     // getSpaceTabs,
-    recycleOldTabs
+    // recycleOldTabs
   } = useBrowserState();
 
 
@@ -60,8 +60,15 @@ function App() {
       selectLastTab
     });
 
+    // 监听从主进程发送的新标签页打开请求
+    window.electron.ipcRenderer.on('open-url-in-new-tab', (_event, url: string) => {
+      console.log('Received request to open URL in new tab:', url);
+      createTab(url);
+    });
+
     return () => {
       UnLoadMenuEvents();
+      window.electron.ipcRenderer.removeAllListeners('open-url-in-new-tab');
     }
   }, [currentTab]);
 
@@ -195,28 +202,6 @@ function App() {
     }
   }, [currentTab]);
 
-  const debouncedRecycleOldTabs = useMemo(
-    () => debounce(() => {
-      recycleOldTabs();
-    }, 500),
-    [allTabs, browser, settings]
-  );
-
-  useEffect(() => {
-    // recycle old tabs every 10 seconds
-    const intervalId = setInterval(() => {
-      debouncedRecycleOldTabs();
-    }, 10000);
-
-    return () => {
-      clearInterval(intervalId);
-    };
-  }, [recycleOldTabs]);
-
-  useEffect(() => {
-    debouncedRecycleOldTabs();
-  }, [allTabs, browser, settings]);
-
   useEffect(() => {
     if (currentTab && currentTab.webview.current) {
       try {
@@ -278,6 +263,7 @@ function App() {
                   onLoadCommit={(url, isMainFrame) => handleLoadCommit(url, isMainFrame, tab.id)}
                   onMediaStartedPlaying={() => updateTab(tab.id, {isMediaPlaying: true})}
                   onMediaPaused={() => updateTab(tab.id, {isMediaPlaying: false, lastMediaPlayed: Date.now()})}
+                  onClose={() => closeTab(tab.id)}
                 />
               ))
             ))

@@ -373,7 +373,8 @@ export function useBrowserState(initialBrowser?: Browser, settings?: Settings): 
     }));
   }, [browser]);
 
-  const recycleOldSpaceCallback = useCallback(() => {
+  const recycleOldTabsCallback = useCallback(() => {
+    console.log("recycleOldTabs", allTabs);
     recycleOldTabs({
       allTabs,
       currentTabId: browser.currentTabId,
@@ -430,6 +431,28 @@ export function useBrowserState(initialBrowser?: Browser, settings?: Settings): 
     });
   }, []);
 
+  const debouncedRecycleOldTabs = useMemo(
+    () => debounce(() => {
+      recycleOldTabsCallback();
+    }, 500),
+    [allTabs, browser, settings, recycleOldTabsCallback]
+  );
+
+  useEffect(() => {
+    // recycle old tabs every 10 seconds
+    const intervalId = setInterval(() => {
+      debouncedRecycleOldTabs();
+    }, 10000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [recycleOldTabsCallback]);
+
+  useEffect(() => {
+    debouncedRecycleOldTabs();
+  }, [allTabs, browser, settings]);
+
   useEffect(() => {
     loadBrowserData();
   }, [loadBrowserData]);
@@ -474,6 +497,6 @@ export function useBrowserState(initialBrowser?: Browser, settings?: Settings): 
 
     findTabById,
     getSpaceTabs,
-    recycleOldTabs: recycleOldSpaceCallback
+    recycleOldTabs: recycleOldTabsCallback
   };
 }

@@ -256,6 +256,7 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
                 isSelected={currentTab ? currentTab.id === tab.id : false}
                 isPinned={true}
                 onUnpin={() => onTabUnpin(tab.id)}
+                render={tab.shouldRender}
               />
             ))
           }
@@ -290,6 +291,7 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
                 isSelected={currentTab ? currentTab.id === tab.id : false}
                 isPinned={false}
                 onPin={() => onTabPin(tab.id)}
+                render={tab.shouldRender}
               />
             ))
           }

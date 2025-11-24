@@ -11,6 +11,7 @@ export default function TabRow({
   isPinned = false,
   onPin,
   onUnpin,
+  render = false
 } : {
   tab: Tab,
   onTabClose: () => void,
@@ -19,6 +20,7 @@ export default function TabRow({
   isPinned?: boolean;
   onPin?: () => void;
   onUnpin?: () => void;
+  render?: boolean;
 }) {
   return (
     <ContextMenu menuItems={[
@@ -57,7 +59,11 @@ export default function TabRow({
           className={`w-full ${isSelected ? 'bg-neutral-200' : ''}`}
           onPress={onSelect}
         >
-          <p className="w-full text-start overflow-hidden whitespace-nowrap text-ellipsis">
+          <p className={`
+            w-full text-start overflow-hidden whitespace-nowrap text-ellipsis
+            duration-300 ease-in-out transition-all
+            ${render ? 'text-neutral-950' : 'text-neutral-500'}
+          `}>
             {tab.name || tab.url}
           </p>
         </Button>

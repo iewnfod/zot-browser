@@ -26,39 +26,29 @@ export function loadWebContentEvents() {
       lastKnownURL.delete(contents.id);
     });
 
-    try {
-      contents.setWindowOpenHandler((details) => {
-        const url = details.url;
-        try {
-          const hostWC = (contents as any).hostWebContents as Electron.WebContents | undefined;
-          const targetHost = hostWC || contents;
-          const parentWindow = BrowserWindow.fromWebContents(targetHost) || BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
+    contents.setWindowOpenHandler((details) => {
+      const url = details.url;
+      try {
+        const hostWC = (contents as any).hostWebContents as Electron.WebContents | undefined;
+        const targetHost = hostWC || contents;
+        const parentWindow = BrowserWindow.fromWebContents(targetHost) || BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
 
-          if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
-            if (parentWindow && !parentWindow.isDestroyed()) {
-              try {
-                parentWindow.webContents.send('open-url-in-new-tab', url);
-                console.info('[web-contents-created.setWindowOpenHandler] Forwarded url to renderer to open in new tab:', url);
-              } catch (sendErr) {
-                console.error('[web-contents-created.setWindowOpenHandler] Failed to send IPC to renderer, opening externally:', sendErr);
-                shell.openExternal(url).catch(() => {});
-              }
-            } else {
-              shell.openExternal(url).catch(() => {});
-            }
-          } else {
-            shell.openExternal(url).catch(() => {});
+        if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+          if (parentWindow && !parentWindow.isDestroyed()) {
+            parentWindow.webContents.send('open-url-in-new-tab', url);
+            console.info('[web-contents-created.setWindowOpenHandler] Forwarded url to renderer to open in new tab:', url);
           }
-        } catch (e) {
-          console.error('[web-contents-created.setWindowOpenHandler] Error handling new-window request:', e);
-          try { shell.openExternal(details.url).catch(() => {}); } catch (_) {}
+        } else {
+          shell.openExternal(url).catch(() => {});
+          console.info('[web-contents-created.setWindowOpenHandler] Not a webpage, use shell open:', url);
         }
+      } catch (e) {
+        console.error('[web-contents-created.setWindowOpenHandler] Error handling new window request:', e);
+        try { shell.openExternal(details.url).catch(() => {}); } catch (_) {}
+      }
 
-        return { action: 'deny' };
-      });
-    } catch (e) {
-      // eslint-disable-next-line no-empty
-    }
+      return { action: 'deny' };
+    });
   });
 
   app.on('certificate-error', async (event, webContents, url, error, certificate, callback) => {

@@ -61,6 +61,10 @@ function createWindow(): void {
     mainWindow.close();
   });
 
+  ipcMain.handle('focus', () => {
+    mainWindow.focus();
+  });
+
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL']);
   } else {

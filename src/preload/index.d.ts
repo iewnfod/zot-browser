@@ -10,6 +10,7 @@ declare global {
       minimize: () => Promise<void>,
       unmaximize: () => Promise<void>,
       close: () => Promise<void>,
+      focus: () => Promise<void>,
       scaleFactor: () => Promise<number>,
     },
     store: {
