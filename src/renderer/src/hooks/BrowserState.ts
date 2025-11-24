@@ -5,7 +5,7 @@ import {
   SerializableBrowser,
   serializeBrowser
 } from '@renderer/lib/browser';
-import { CreateNewTab, recycleOldTabs, Tab } from '@renderer/lib/tab';
+import { cleanupWebView, CreateNewTab, recycleOldTabs, Tab } from '@renderer/lib/tab';
 import { NewDefaultSpace, Space } from '@renderer/lib/space';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Settings } from '@renderer/lib/settings';
@@ -150,14 +150,20 @@ export function useBrowserState(initialBrowser?: Browser, settings?: Settings): 
     const tab = findTabById(tabId);
     if (!tab) return;
 
-    const isCurrentTab = tab.id === tab.id;
+    const isCurrentTab = tab.id === browser.currentTabId;
 
     setBrowser(prev => {
       const newBrowser = {...prev};
 
-      // 如果是被钉住的，那就取消渲染
+      // 如果是被钉住的或收藏的，先停止渲染并清理 webview 引用
       if (tab.isFavorite || tab.isPinned) {
-        newBrowser.tabs[tabId].shouldRender = false;
+        cleanupWebView(tab);
+
+        newBrowser.tabs[tabId] = {
+          ...newBrowser.tabs[tabId],
+          shouldRender: false,
+          webview: { current: null }
+        };
       } else {
         // 否则，从 tab list 中移除，从 space 对应表中移除
         delete newBrowser.tabs[tabId];
@@ -184,7 +190,7 @@ export function useBrowserState(initialBrowser?: Browser, settings?: Settings): 
 
       return newBrowser;
     });
-  }, [findTabById, tabSelectHistory, removeFromTabSelectHistory]);
+  }, [findTabById, tabSelectHistory, removeFromTabSelectHistory, browser]);
 
   const selectTab = useCallback((tabId: string) => {
     const tab = findTabById(tabId);

@@ -15,6 +15,8 @@ export interface Tab {
   isPinned?: boolean;
   isFavorite?: boolean;
   spaceId?: string;
+  isMediaPlaying?: boolean;
+  lastMediaPlayed?: number;
 }
 
 export interface SerializableTab {
@@ -27,6 +29,8 @@ export interface SerializableTab {
   isPinned?: boolean;
   isFavorite?: boolean;
   spaceId?: string;
+  isMediaPlaying?: boolean;
+  lastMediaPlayed?: number;
 }
 
 export function upgradeTabToPinnedTab(tab: Tab): Tab {
@@ -50,6 +54,8 @@ export function CreateNewTab(src: string) {
     shouldRender: false,
     isPinned: false,
     isFavorite: false,
+    isMediaPlaying: false,
+    lastMediaPlayed: undefined,
   } as Tab;
 }
 
@@ -64,6 +70,8 @@ export function serializeTab(tab: Tab): SerializableTab {
     isPinned: tab.isPinned,
     isFavorite: tab.isFavorite,
     spaceId: tab.spaceId,
+    isMediaPlaying: tab.isMediaPlaying,
+    lastMediaPlayed: tab.lastMediaPlayed,
   };
 }
 
@@ -81,7 +89,25 @@ export function deserializeTab(tab: SerializableTab): Tab {
     isPinned: tab.isPinned,
     isFavorite: tab.isFavorite,
     spaceId: tab.spaceId,
+    isMediaPlaying: tab.isMediaPlaying || false,
+    lastMediaPlayed: tab.lastMediaPlayed,
   };
+}
+
+export function cleanupWebView(tab: Tab) {
+  if (tab.webview.current) {
+    try {
+      // 停止任何加载或媒体播放
+      if (tab.webview.current.stop) {
+        tab.webview.current.stop();
+      }
+      if (tab.webview.current.setAudioMuted) {
+        tab.webview.current.setAudioMuted(true);
+      }
+    } catch (e) {
+      console.warn(`Error cleaning up webview for tab ${tab.id}:`, e);
+    }
+  }
 }
 
 export function recycleOldTabs(props: {
@@ -94,8 +120,20 @@ export function recycleOldTabs(props: {
   const inter = props.interval || DEFAULT_CLEAR_TAB_INTERVAL;
   props.allTabs.forEach((tab: Tab) => {
     if (props.currentTabId !== tab.id && tab.shouldRender) {
-      if (tab.lastAccessed && (now - tab.lastAccessed) > inter) {
+      // 不卸载正在播放媒体的 tab
+      if (tab.isMediaPlaying) {
+        return;
+      }
+
+      // 计算最后活动时间
+      let lastActiveTime = tab.lastAccessed || 0;
+      if (tab.lastMediaPlayed && tab.lastMediaPlayed > lastActiveTime) {
+        lastActiveTime = tab.lastMediaPlayed;
+      }
+
+      if (lastActiveTime && (now - lastActiveTime) > inter) {
         console.log("Clear tab:", tab);
+        cleanupWebView(tab);
         props.makeTabNotRender(tab.id);
       }
     }

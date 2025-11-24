@@ -6,7 +6,7 @@ export interface Settings {
   showFullUrl?: boolean;
 }
 
-export const DEFAULT_CLEAR_TAB_INTERVAL = 60 * 1000;  // default 1 min
+export const DEFAULT_CLEAR_TAB_INTERVAL = 5 * 60 * 1000;  // default 5 min
 
 export function getDefaultSettings() {
   return {

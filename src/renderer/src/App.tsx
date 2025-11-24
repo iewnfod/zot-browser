@@ -276,6 +276,8 @@ function App() {
                   onPageFaviconUpdated={(favicons) => handleFaviconsUpdate(favicons, tab.id)}
                   onPageTitleUpdated={(title) => handleTitleUpdate(title, tab.id)}
                   onLoadCommit={(url, isMainFrame) => handleLoadCommit(url, isMainFrame, tab.id)}
+                  onMediaStartedPlaying={() => updateTab(tab.id, {isMediaPlaying: true})}
+                  onMediaPaused={() => updateTab(tab.id, {isMediaPlaying: false, lastMediaPlayed: Date.now()})}
                 />
               ))
             ))
