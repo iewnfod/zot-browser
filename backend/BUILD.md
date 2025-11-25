@@ -55,8 +55,14 @@ This will download the appropriate CEF framework for your platform.
 
 Use the provided build script:
 
+**Linux/macOS:**
 ```bash
 ./build-cef.sh
+```
+
+**Windows (PowerShell):**
+```powershell
+.\build-cef.ps1
 ```
 
 This script will:
