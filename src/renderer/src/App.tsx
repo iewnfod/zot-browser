@@ -3,13 +3,16 @@ import { debounce } from '@renderer/lib/utils';
 import BrowserSideBar from '@renderer/components/SideBar';
 import useNewTabModal from '@renderer/components/modals/NewTabModal';
 import WebViewContainer from '@renderer/components/WebViewContainer';
-import WebView from '@renderer/components/WebView';
+import UnifiedWebView, { runtime } from '@renderer/components/UnifiedWebView';
 import { LoadMenuEvents, UnLoadMenuEvents } from '@renderer/lib/menu';
 import { getDefaultSettings, Settings } from '@renderer/lib/settings';
 import ResizeSidebarDivider from '@renderer/components/ResizeSidebarDivider';
 import InSecureHttpsCertificateModal from '@renderer/components/modals/InSecureHttpsCertificateModal';
 import useEditTabModal from '@renderer/components/modals/EditTabModal';
 import { useBrowserState } from '@renderer/hooks/BrowserState';
+
+// Log the runtime environment
+console.log('[App] Running in:', runtime.name);
 
 function App() {
   // browser
@@ -251,8 +254,9 @@ function App() {
           {
             allTabs.map((tab) => (
               (tab.shouldRender && (
-                <WebView
+                <UnifiedWebView
                   key={tab.id}
+                  tabId={tab.id}
                   src={tab.src}
                   ref={tab.webview}
                   useragent={settings.ua}
