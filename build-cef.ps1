@@ -91,8 +91,17 @@ if (-not (Test-Path $ResourcesDir)) {
 # Copy the built files
 Copy-Item -Path "out\renderer\*" -Destination $ResourcesDir -Recurse -Force
 
-# Also copy the CEF bridge script
-Copy-Item -Path "backend\webui\cef-bridge.js" -Destination $ResourcesDir -Force
+# Compile and copy the CEF bridge TypeScript
+Write-ColorOutput "Compiling CEF bridge TypeScript..." "Yellow"
+Push-Location "backend\webui"
+npx tsc --project tsconfig.json
+if ($LASTEXITCODE -ne 0) {
+    Write-ColorOutput "Error: TypeScript compilation failed" "Red"
+    Pop-Location
+    exit 1
+}
+Pop-Location
+Copy-Item -Path "backend\webui\dist\cef-bridge.js" -Destination $ResourcesDir -Force
 
 Write-ColorOutput "React build copied to backend resources" "Green"
 

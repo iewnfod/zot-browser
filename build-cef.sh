@@ -70,8 +70,12 @@ mkdir -p backend/cmd/browser/resources
 # Copy the built files
 cp -r out/renderer/* backend/cmd/browser/resources/
 
-# Also copy the CEF bridge script
-cp backend/webui/cef-bridge.js backend/cmd/browser/resources/
+# Compile and copy the CEF bridge TypeScript
+echo -e "${YELLOW}Compiling CEF bridge TypeScript...${NC}"
+cd backend/webui
+npx tsc --project tsconfig.json
+cd ../..
+cp backend/webui/dist/cef-bridge.js backend/cmd/browser/resources/
 
 echo -e "${GREEN}React build copied to backend resources${NC}"
 
