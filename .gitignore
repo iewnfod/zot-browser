@@ -7,3 +7,5 @@ out
 .idea/
 .vscode/
 yarn.lock
+pkg/
+zot.db
