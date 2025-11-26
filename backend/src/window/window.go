@@ -1,6 +1,8 @@
 package window
 
 import (
+	"fmt"
+
 	"github.com/energye/energy/v2/cef"
 	"github.com/energye/energy/v2/cef/ipc"
 )
@@ -30,4 +32,6 @@ func LoadWindowEvents() {
 		window := cef.BrowserWindow.MainWindow()
 		window.IsFullScreen()
 	})
+
+	fmt.Println("Window Events Loaded")
 }

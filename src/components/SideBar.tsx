@@ -361,7 +361,7 @@ export default function BrowserSideBar(props: BrowserSideBarProps) {
           placement="left"
           hideCloseButton
           classNames={{
-            base: `sm:data-[placement=right]:m-3 sm:data-[placement=left]:m-3 rounded-medium min-w-0 w-auto max-w-[${props.width}px] pr-2`,
+            base: `sm:data-[placement=right]:m-3 sm:data-[placement=left]:m-3 rounded-medium min-w-0 w-auto max-w-full pr-2`,
           }}
         >
           <DrawerContent

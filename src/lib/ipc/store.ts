@@ -5,6 +5,8 @@ function StoreGet(key: string, callback?: (data: any) => void) {
 }
 
 function StoreSet(key: string, value: any, callback?: (data: boolean) => void) {
+  const d = JSON.stringify(value);
+
   ipc.emit('store-set', [key, JSON.stringify(value)], JsonDataCallback(callback));
 }
 

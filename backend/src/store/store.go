@@ -24,7 +24,7 @@ func InitStore() error {
 			if err != nil {
 				return err
 			}
-			v = string(val)
+			v = val
 			return nil
 		})
 		if err != nil {
@@ -66,11 +66,13 @@ func InitStore() error {
 		return err == nil
 	})
 
+	fmt.Println("Store Initialized")
 	return nil
 }
 
 func CloseStore() {
 	if db != nil {
 		db.Close()
+		fmt.Println("Store Closed")
 	}
 }

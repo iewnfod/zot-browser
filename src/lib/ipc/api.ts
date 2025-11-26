@@ -9,19 +9,19 @@ function isMaximized(callback?: (data: boolean) => void) {
 }
 
 function maximize(callback?: () => void) {
-  ipc.emit('maximize', [], callback);
+  ipc.emit('maximize', [], JsonDataCallback(callback));
 }
 
 function unmaximize(callback?: () => void) {
-  ipc.emit('unmaximize', [], callback);
+  ipc.emit('unmaximize', [], JsonDataCallback(callback));
 }
 
 function minimize(callback?: () => void) {
-  ipc.emit('minimize', [], callback);
+  ipc.emit('minimize', [], JsonDataCallback(callback));
 }
 
 function close(callback?: () => void) {
-  ipc.emit('close', [], callback);
+  ipc.emit('close', [], JsonDataCallback(callback));
 }
 
 function focus(_callback?: () => void) {}

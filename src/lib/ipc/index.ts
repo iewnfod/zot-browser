@@ -6,7 +6,10 @@ export function JsonDataCallback(callback?: (data: any) => void) {
         callback?.(d);
       } catch (e) {
         console.error("Failed to solve ipc callback data: ", e);
+        callback?.(data);
       }
+    } else {
+      callback?.({});
     }
   }
 }

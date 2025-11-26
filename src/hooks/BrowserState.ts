@@ -429,6 +429,7 @@ export function useBrowserState(initialBrowser?: Browser, settings?: Settings): 
         setBrowser(deserializeBrowser(data));
       }
       setIsBrowserInitialized(true);
+      console.log('Browser loaded');
     });
   }, []);
 

@@ -85,6 +85,7 @@ function App() {
         setSettings(data);
       }
       setIsSettingsInitialized(true);
+      console.log('Settings loaded');
     });
   }
 

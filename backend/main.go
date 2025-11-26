@@ -18,6 +18,9 @@ func main() {
 	}
 	defer store.CloseStore()
 
+	// load events
+	window.LoadWindowEvents()
+
 	// init cef
 	cef.GlobalInit(nil, &resources)
 
@@ -28,9 +31,6 @@ func main() {
 
 	cef.BrowserWindow.Config.Width = 1500
 	cef.BrowserWindow.Config.Height = 1020
-
-	// load events
-	window.LoadWindowEvents()
 
 	// run
 	cef.Run(cefApp)
