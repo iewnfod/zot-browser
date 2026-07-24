@@ -1,7 +1,7 @@
 import { app, ipcMain, shell } from 'electron';
 import { store } from './storage';
 import { asyncCheck } from './time';
-import { getOverlayWindow } from './viewManager';
+import { getUiView } from './viewManager';
 
 export function loadWebContentEvents() {
   const promptingFingerprints = new Set<string>();
@@ -30,12 +30,12 @@ export function loadWebContentEvents() {
     contents.setWindowOpenHandler((details) => {
       const url = details.url;
       try {
-        // UI 事件发往覆盖窗口（所有 UI 都在那）
-        const overlay = getOverlayWindow();
+        // UI 事件发往 UI view（所有 UI 都在那）
+        const uv = getUiView();
 
         if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
-          if (overlay) {
-            overlay.webContents.send('open-url-in-new-tab', url);
+          if (uv) {
+            uv.webContents.send('open-url-in-new-tab', url);
             console.info('[web-contents-created.setWindowOpenHandler] Forwarded url to renderer to open in new tab:', url);
           }
         } else {
@@ -75,10 +75,10 @@ export function loadWebContentEvents() {
       const expiry = certificate.validExpiry ? new Date(certificate.validExpiry * 1000).toLocaleString() : 'Unknown';
       const start = certificate.validStart ? new Date(certificate.validStart * 1000).toLocaleString() : 'Unknown';
 
-      const overlay = getOverlayWindow();
+      const uv = getUiView();
 
       console.log('[certificate-error] request frontend to open insecure https certificate error modal');
-      overlay?.webContents.send('open-insecure-https-certificate-modal', {
+      uv?.webContents.send('open-insecure-https-certificate-modal', {
         url, error,
         subjectName: certificate.subjectName,
         issuerName: certificate.issuerName,

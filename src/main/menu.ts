@@ -1,16 +1,25 @@
 import MenuItemConstructorOptions = Electron.MenuItemConstructorOptions;
 import MenuItem = Electron.MenuItem;
-import { BrowserWindow, dialog } from 'electron';
+import {BrowserWindow, dialog, ipcMain} from 'electron';
+import { getUiView } from './viewManager';
 
 const Store = require('electron-store').default;
 const menuStore = new Store();
 
-function emitEvent(window: BrowserWindow, eventName: string, ...args: any[]) {
+function emitEvent(eventName: string, ...args: unknown[]) {
   console.log(`Emit ${eventName}`);
-  window.webContents.send(eventName, ...args);
+  const uv = getUiView();
+  if (uv && !uv.webContents.isDestroyed()) {
+    uv.webContents.send(eventName, ...args);
+  }
 }
 
-export function MenuTemplate(overlayWindow: BrowserWindow, pageWindow: BrowserWindow) {
+function emitMainEvent(eventName: string, ...args: unknown[]) {
+  console.log(`Emit Main ${eventName}`);
+  ipcMain.emit(eventName, args);
+}
+
+export function MenuTemplate(mainWindow: BrowserWindow) {
   const MenuTemplate: (MenuItemConstructorOptions | MenuItem)[] = [
     {
       label: 'Zot Browser',
@@ -32,7 +41,7 @@ export function MenuTemplate(overlayWindow: BrowserWindow, pageWindow: BrowserWi
         {
           label: 'Toggle SideBar',
           accelerator: 'CmdOrCtrl+Shift+S',
-          click: () => emitEvent(overlayWindow, 'menu-toggle-sidebar')
+          click: () => emitEvent('menu-toggle-sidebar')
         },
       ]
     },
@@ -42,77 +51,45 @@ export function MenuTemplate(overlayWindow: BrowserWindow, pageWindow: BrowserWi
         {
           label: 'New Tab',
           accelerator: 'CmdOrCtrl+T',
-          click: () => emitEvent(overlayWindow, 'menu-new-tab')
+          click: () => emitEvent('menu-new-tab')
         },
         {
           label: 'Close Tab',
           accelerator: 'CmdOrCtrl+W',
-          click: () => emitEvent(overlayWindow, 'menu-close-tab')
+          click: () => emitEvent('menu-close-tab')
         },
         {
           label: 'Reload',
           accelerator: 'CmdOrCtrl+R',
-          click: () => emitEvent(overlayWindow, 'menu-reload-tab')
+          click: () => emitEvent('menu-reload-tab')
         },
         {
           label: 'Go Back',
           accelerator: 'CmdOrCtrl+[',
-          click: () => emitEvent(overlayWindow, 'menu-tab-go-back')
+          click: () => emitEvent('menu-tab-go-back')
         },
         {
           label: 'Go Forward',
           accelerator: 'CmdOrCtrl+]',
-          click: () => emitEvent(overlayWindow, 'menu-tab-go-forward')
+          click: () => emitEvent('menu-tab-go-forward')
         },
         {
           label: 'Select',
-          submenu: [
-            {
-              label: 'Tab 1',
-              accelerator: 'CmdORCtrl+1',
-              click: () => emitEvent(overlayWindow, 'menu-select-tab', 0)
-            },
-            {
-              label: 'Tab 2',
-              accelerator: 'CmdORCtrl+2',
-              click: () => emitEvent(overlayWindow, 'menu-select-tab', 1)
-            },
-            {
-              label: 'Tab 3',
-              accelerator: 'CmdORCtrl+3',
-              click: () => emitEvent(overlayWindow, 'menu-select-tab', 2)
-            },
-            {
-              label: 'Tab 4',
-              accelerator: 'CmdORCtrl+4',
-              click: () => emitEvent(overlayWindow, 'menu-select-tab', 3)
-            },
-            {
-              label: 'Tab 5',
-              accelerator: 'CmdORCtrl+5',
-              click: () => emitEvent(overlayWindow, 'menu-select-tab', 4)
-            },
-            {
-              label: 'Tab 6',
-              accelerator: 'CmdORCtrl+6',
-              click: () => emitEvent(overlayWindow, 'menu-select-tab', 5)
-            },
-            {
-              label: 'Tab 7',
-              accelerator: 'CmdORCtrl+7',
-              click: () => emitEvent(overlayWindow, 'menu-select-tab', 6)
-            },
-            {
-              label: 'Tab 8',
-              accelerator: 'CmdORCtrl+8',
-              click: () => emitEvent(overlayWindow, 'menu-select-tab', 7)
-            },
-            {
-              label: 'Last Tab',
-              accelerator: 'CmdOrCtrl+9',
-              click: () => emitEvent(overlayWindow, 'menu-select-last-tab')
-            },
-          ]
+          submenu: Array(9).map((i) => {
+            if (i == 8) {
+              return {
+                label: 'Last Tab',
+                accelerator: 'CmdOrCtrl+9',
+                click: () => emitEvent('menu-select-last-tab')
+              };
+            } else {
+              return {
+                label: `Tab ${i+1}`,
+                accelerator: `CmdORCtrl+${i+1}`,
+                click: () => emitEvent('menu-select-tab', i)
+              };
+            }
+          })
         }
       ]
     },
@@ -123,14 +100,19 @@ export function MenuTemplate(overlayWindow: BrowserWindow, pageWindow: BrowserWi
         {
           label: 'Electron Developer Tools',
           accelerator: 'Shift+F12',
-          click: () => emitEvent(overlayWindow, 'menu-open-electron-developer')
+          click: () => emitEvent('menu-open-electron-developer')
+        },
+        {
+          label: 'UI Developer Tools',
+          accelerator: 'Shift+CmdOrCtrl+I',
+          click: () => emitMainEvent('menu-open-ui-developer')
         },
         { type: 'separator' },
         {
           label: 'Clear Trusted Certificates',
           click: async () => {
-            // 对话框挂载到可聚焦的底层窗口（覆盖窗口 focusable:false）
-            const { response } = await dialog.showMessageBox(pageWindow, {
+            // 对话框挂载到主窗口
+            const { response } = await dialog.showMessageBox(mainWindow, {
               type: 'question',
               title: '清除已信任证书',
               message: '确定要清除所有已信任的证书吗？',
@@ -141,7 +123,7 @@ export function MenuTemplate(overlayWindow: BrowserWindow, pageWindow: BrowserWi
             });
             if (response === 0) {
               menuStore.delete('allowedCertificates');
-              await dialog.showMessageBox(pageWindow, {
+              await dialog.showMessageBox(mainWindow, {
                 type: 'info',
                 message: '已清除已信任的证书。',
                 buttons: ['确定']

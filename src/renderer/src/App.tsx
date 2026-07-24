@@ -228,33 +228,7 @@ function App() {
     };
   }, [settings.showSideBar, settings.sidebarWidth]);
 
-  // 选择性点击穿透（主进程轮询方案）：
-  // X11 下覆盖窗口收不到 mousemove，改由主进程轮询光标位置。
-  // 这里把所有 [data-interactive] 元素的矩形上报给主进程，让它判断光标是否在 UI 上。
-  useEffect(() => {
-    const reportRects = (): void => {
-      const els = document.querySelectorAll('[data-interactive="true"]');
-      const rects: Array<{ x: number; y: number; width: number; height: number }> = [];
-      els.forEach((el) => {
-        const r = (el as HTMLElement).getBoundingClientRect();
-        if (r.width > 0 && r.height > 0) {
-          rects.push({ x: r.left, y: r.top, width: r.width, height: r.height });
-        }
-      });
-      window.api.setUiRects(rects);
-    };
-    reportRects();
-    // 窗口尺寸/侧栏变化时重新上报
-    const ro = new ResizeObserver(reportRects);
-    ro.observe(document.body);
-    window.addEventListener('resize', reportRects);
-    return () => {
-      ro.disconnect();
-      window.removeEventListener('resize', reportRects);
-    };
-  }, [settings.showSideBar, settings.sidebarWidth]);
-
-  // 模态框开关通知主进程（打开时全屏接收点击）
+  // 模态框 z-order：打开时将 UI view 提升到网页之上，关闭时恢复
   useEffect(() => {
     const checkModal = (): void => {
       const hasModal = !!document.querySelector('[role="dialog"]');
@@ -284,8 +258,7 @@ function App() {
   // render
   return (
     <div className="flex flex-col w-[100vw] h-[100vh]">
-      {/* 主 UI 容器。注意：不在此处标 data-interactive，因为它横跨页面区域。
-          各实体 UI（侧栏等）自行标记，确保页面区域穿透到底层网页。 */}
+      {/* 主 UI 容器 */}
       <div className={`flex flex-row w-fulls h-full grow gap-0`}>
         <BrowserSideBar
           showSideBar={settings.showSideBar}

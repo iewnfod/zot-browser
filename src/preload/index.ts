@@ -26,10 +26,7 @@ const api = {
   setCurrentTab: (tabId: string | null) => ipcRenderer.invoke('set-current-tab', tabId),
   setPageRect: (rect: { x: number; y: number; width: number; height: number }) =>
     ipcRenderer.invoke('set-page-rect', rect),
-  // 点击穿透：上报需要接收点击的 UI 区域（侧栏/顶部条等）
-  setUiRects: (rects: Array<{ x: number; y: number; width: number; height: number }>) =>
-    ipcRenderer.invoke('set-ui-rects', rects),
-  // 点击穿透：模态框开关
+  // 模态框 z-order 控制
   setModalOpen: (open: boolean) => ipcRenderer.invoke('set-modal-open', open)
 };
 

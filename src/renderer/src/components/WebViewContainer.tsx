@@ -62,7 +62,7 @@ export default function WebViewContainer({
 
   return (
     <div
-      className={`flex flex-col w-full h-full items-center select-none grow ${hide ? 'hidden' : ''}`}
+      className={`flex flex-col w-full h-full items-center select-none grow bg-transparent ${hide ? 'hidden' : ''}`}
     >
       <style>
         {`
@@ -87,7 +87,6 @@ export default function WebViewContainer({
         `}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
-        data-interactive="true"
       >
         <div
           className={`
@@ -129,11 +128,10 @@ export default function WebViewContainer({
         }
       </div>
 
-      <div className="w-full h-full grow p-2 pl-0 pt-0">
-        {/* pageAreaRef 挂在紧贴 Card 的测量 div 上，测量的是 Card 实际矩形（不含外层 padding），
-            这样网页视图正好填在 Card 内，四周留出 padding 间距。 */}
-        <div ref={pageAreaRef} className="w-full h-full">
-          <Card className="w-full h-full overflow-hidden bg-transparent">
+      <div className="w-full h-full grow p-2 pl-0 pt-0 bg-transparent">
+        {/* 整个内容区域透明，让下层网页 view 显示出来 */}
+        <div ref={pageAreaRef} className="w-full h-full bg-transparent">
+          <Card className="w-full h-full overflow-hidden bg-transparent [&>div]:!bg-transparent">
             {children}
           </Card>
         </div>

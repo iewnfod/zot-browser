@@ -1,46 +1,43 @@
-import { app, BrowserWindow, ipcMain, screen } from 'electron';
-import { electronApp, optimizer } from '@electron-toolkit/utils';
+import { app, BrowserWindow, ipcMain, screen, WebContentsView } from 'electron';
+import { electronApp, is } from '@electron-toolkit/utils';
+import { join } from 'path';
 import icon from '../../resources/icon.png?asset';
 import { MenuTemplate } from './menu';
 import { Menu } from 'electron';
 import { loadFaviconEvents } from './favicon';
 import { loadWebContentEvents } from './webcontent';
 import { loadStoreEvents } from './storage';
-import { initViewManager, setOverlayWindow } from './viewManager';
-import { createOverlayWindow } from './overlayWindow';
+import { initViewManager, setUiView } from './viewManager';
 
-// Linux 下强制 X11（XWayland），保证透明窗口 + 点击穿透 + 置顶可用。
-// 必须在 app.whenReady 之前注入。
+// Linux 下强制 X11（XWayland），保证透明窗口可用。
 if (process.platform === 'linux') {
   app.commandLine.appendSwitch('ozone-platform-hint', 'x11');
 }
 
 /**
- * 底层窗口：普通不透明窗口，只承载 WebContentsView（网页）。
- * 不加载任何 React/HTML —— UI 全部在覆盖窗口。
- * 注意：底层不能 transparent:true，否则透明窗口下 WebContentsView 渲染不可靠。
- * 需要透明的是覆盖窗口（透过它的透明区域看到底层网页）。
+ * 创建透明 BrowserWindow，作为唯一窗口承载所有 WebContentsView。
+ * UI view 在最上层（全窗口），网页 view 在下层（仅内容区域）。
+ * 点击穿透由 viewManager 的 input-event 转发机制处理。
  */
-function createPageWindow(): BrowserWindow {
+function createMainWindow(): BrowserWindow {
   const isMac = process.platform === 'darwin';
 
-  const pageWindow = new BrowserWindow({
+  const mainWindow = new BrowserWindow({
     width: 1200,
     height: 720,
     show: false,
+    frame: false,
+    transparent: true,
     hasShadow: false,
     ...(isMac
       ? {
           titleBarStyle: 'hidden',
           trafficLightPosition: { x: 17, y: 17 }
         }
-      : {
-          frame: false
-        }),
+      : {}),
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
-      // 底层不加载 UI，无需 preload；用最小配置
       sandbox: true,
       nodeIntegration: false,
       contextIsolation: true,
@@ -48,38 +45,55 @@ function createPageWindow(): BrowserWindow {
     }
   });
 
-  // 底层窗口不加载任何 URL（about:blank），ready-to-show 不会触发，
-  // 所以直接 show，不依赖首次绘制完成。
-  pageWindow.show();
+  mainWindow.show();
 
-  // 窗口控制 IPC（操作底层窗口）
-  ipcMain.handle('is-maximized', () => {
-    return pageWindow.isMaximized();
+  // 窗口控制 IPC
+  ipcMain.handle('is-maximized', () => mainWindow.isMaximized());
+  ipcMain.handle('maximize', () => mainWindow.maximize());
+  ipcMain.handle('minimize', () => mainWindow.minimize());
+  ipcMain.handle('unmaximize', () => mainWindow.unmaximize());
+  ipcMain.handle('close', () => mainWindow.close());
+  ipcMain.handle('focus', () => mainWindow.focus());
+
+  return mainWindow;
+}
+
+/**
+ * 创建 UI WebContentsView（React 前端），加载到最上层。
+ * 输入事件转发由 setUiView → setupInputForwarding 处理。
+ */
+function createUiView(mainWindow: BrowserWindow): WebContentsView {
+  const uiView = new WebContentsView({
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      sandbox: false,
+      nodeIntegration: false,
+      contextIsolation: true,
+      spellcheck: false
+    }
   });
 
-  ipcMain.handle('maximize', () => {
-    pageWindow.maximize();
-  });
+  // view 级别背景透明，让下层网页 view 透过来
+  uiView.setBackgroundColor('#00000000');
 
-  ipcMain.handle('minimize', () => {
-    pageWindow.minimize();
-  });
+  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+    uiView.webContents.loadURL(process.env['ELECTRON_RENDERER_URL']);
+  } else {
+    uiView.webContents.loadFile(join(__dirname, '../renderer/index.html'));
+  }
 
-  ipcMain.handle('unmaximize', () => {
-    pageWindow.unmaximize();
-  });
+  const syncBounds = (): void => {
+    if (mainWindow.isDestroyed()) return;
+    const bounds = mainWindow.getBounds();
+    uiView.setBounds({ x: 0, y: 0, width: bounds.width, height: bounds.height });
+  };
+  syncBounds();
+  mainWindow.on('resize', syncBounds);
 
-  ipcMain.handle('close', () => {
-    pageWindow.close();
-  });
+  // 最后添加 = 最上层
+  mainWindow.contentView.addChildView(uiView);
 
-  ipcMain.handle('focus', () => {
-    pageWindow.focus();
-  });
-
-  // 注意：底层窗口不 loadURL/loadFile —— 它只是 WebContentsView 的透明宿主。
-
-  return pageWindow;
+  return uiView;
 }
 
 app.whenReady().then(() => {
@@ -87,39 +101,34 @@ app.whenReady().then(() => {
 
   loadWebContentEvents();
 
-  app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window);
-  });
-
   ipcMain.on('ping', () => console.log('pong'));
 
   loadFaviconEvents();
-
   loadStoreEvents();
 
   ipcMain.handle('scale-factor', () => {
     return screen.getPrimaryDisplay().scaleFactor;
   });
 
-  const pageWindow = createPageWindow();
-  initViewManager(pageWindow);
+  const mainWindow = createMainWindow();
+  initViewManager(mainWindow);
 
-  const overlayWindow = createOverlayWindow(pageWindow);
-  // viewManager 把 view-* 事件发往覆盖窗口；菜单/新标签等 UI 事件也发往覆盖窗口
-  // 覆盖窗口加载完 UI 后会主动与底层同步
-  setOverlayWindow(overlayWindow);
+  const uiView = createUiView(mainWindow);
+  ipcMain.on('menu-open-ui-developer', () => {
+    uiView.webContents.openDevTools({ mode: 'detach' });
+  });
+  setUiView(uiView);
 
-  // 菜单事件发往覆盖窗口（所有 UI 都在那）；对话框挂载到可聚焦的底层窗口
-  const menu = Menu.buildFromTemplate(MenuTemplate(overlayWindow, pageWindow));
+  const menu = Menu.buildFromTemplate(MenuTemplate(mainWindow));
   Menu.setApplicationMenu(menu);
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) {
-      const pw = createPageWindow();
-      initViewManager(pw);
-      const ow = createOverlayWindow(pw);
-      setOverlayWindow(ow);
-      const m = Menu.buildFromTemplate(MenuTemplate(ow, pw));
+      const mw = createMainWindow();
+      initViewManager(mw);
+      const uv = createUiView(mw);
+      setUiView(uv);
+      const m = Menu.buildFromTemplate(MenuTemplate(mw));
       Menu.setApplicationMenu(m);
     }
   });

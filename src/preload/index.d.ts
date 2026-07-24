@@ -23,7 +23,6 @@ declare global {
       viewSetUserAgent: (ua: string) => Promise<void>,
       setCurrentTab: (tabId: string | null) => Promise<void>,
       setPageRect: (rect: { x: number; y: number; width: number; height: number }) => Promise<void>,
-      setUiRects: (rects: Array<{ x: number; y: number; width: number; height: number }>) => Promise<void>,
       setModalOpen: (open: boolean) => Promise<void>,
     },
     store: {

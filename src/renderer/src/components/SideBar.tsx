@@ -107,11 +107,11 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
   }, [showFullUrl, currentTab]);
 
   return (
-    <div className={`flex flex-col items-center justify-between h-full w-[15vw] ${isMac() ? 'min-w-[250px]' : 'min-w-[150px]'} ${className}`} style={{
+    <div className={`flex flex-col items-center justify-between h-full w-[15vw] ${isMac() ? 'min-w-[250px]' : 'min-w-[150px]'} backdrop-blur-xl bg-white/20 border-r border-white/10 ${className}`} style={{
       width: width,
       // @ts-expect-error electron attribute
       appRegion: 'drag',
-    }} id="sidebar-container" data-interactive="true">
+    }} id="sidebar-container">
       {/* Top Buttons */}
       <div className="flex flex-col w-full gap-2" style={{
         // @ts-expect-error electron attribute
