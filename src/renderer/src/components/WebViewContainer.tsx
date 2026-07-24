@@ -1,16 +1,18 @@
 import { isMac } from '@react-aria/utils';
 import { Button, Card } from '@heroui/react';
 import { LuMaximize, LuMinimize, LuMinus, LuX } from 'react-icons/lu';
-import { ReactNode, useEffect, useRef, useState } from 'react';
+import { ReactNode, RefObject, useEffect, useRef, useState } from 'react';
 
 export default function WebViewContainer({
   children,
   hide = false,
   isLoading = false,
+  pageAreaRef
 } : {
   children?: ReactNode;
   hide?: boolean;
   isLoading?: boolean;
+  pageAreaRef?: RefObject<HTMLDivElement | null>;
 }) {
   const [showWindowButtons, setShowWindowButtons] = useState<boolean>(false);
   const [isMaximized, setIsMaximized] = useState<boolean>(false);
@@ -85,6 +87,7 @@ export default function WebViewContainer({
         `}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
+        data-interactive="true"
       >
         <div
           className={`
@@ -127,9 +130,13 @@ export default function WebViewContainer({
       </div>
 
       <div className="w-full h-full grow p-2 pl-0 pt-0">
-        <Card className="w-full h-full overflow-hidden">
-          {children}
-        </Card>
+        {/* pageAreaRef 挂在紧贴 Card 的测量 div 上，测量的是 Card 实际矩形（不含外层 padding），
+            这样网页视图正好填在 Card 内，四周留出 padding 间距。 */}
+        <div ref={pageAreaRef} className="w-full h-full">
+          <Card className="w-full h-full overflow-hidden bg-transparent">
+            {children}
+          </Card>
+        </div>
       </div>
     </div>
   );

@@ -1,0 +1,7 @@
+allowBuilds:
+  '@heroui/shared-utils': true
+  electron: true
+  esbuild: true
+
+publicHoistPattern:
+  - '*@heroui/*'

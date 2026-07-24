@@ -1,6 +1,7 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { app, ipcMain, shell } from 'electron';
 import { store } from './storage';
 import { asyncCheck } from './time';
+import { getOverlayWindow } from './viewManager';
 
 export function loadWebContentEvents() {
   const promptingFingerprints = new Set<string>();
@@ -29,13 +30,12 @@ export function loadWebContentEvents() {
     contents.setWindowOpenHandler((details) => {
       const url = details.url;
       try {
-        const hostWC = (contents as any).hostWebContents as Electron.WebContents | undefined;
-        const targetHost = hostWC || contents;
-        const parentWindow = BrowserWindow.fromWebContents(targetHost) || BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
+        // UI 事件发往覆盖窗口（所有 UI 都在那）
+        const overlay = getOverlayWindow();
 
         if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
-          if (parentWindow && !parentWindow.isDestroyed()) {
-            parentWindow.webContents.send('open-url-in-new-tab', url);
+          if (overlay) {
+            overlay.webContents.send('open-url-in-new-tab', url);
             console.info('[web-contents-created.setWindowOpenHandler] Forwarded url to renderer to open in new tab:', url);
           }
         } else {
@@ -75,10 +75,10 @@ export function loadWebContentEvents() {
       const expiry = certificate.validExpiry ? new Date(certificate.validExpiry * 1000).toLocaleString() : 'Unknown';
       const start = certificate.validStart ? new Date(certificate.validStart * 1000).toLocaleString() : 'Unknown';
 
-      const mainWindow = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
+      const overlay = getOverlayWindow();
 
       console.log('[certificate-error] request frontend to open insecure https certificate error modal');
-      mainWindow.webContents.send('open-insecure-https-certificate-modal', {
+      overlay?.webContents.send('open-insecure-https-certificate-modal', {
         url, error,
         subjectName: certificate.subjectName,
         issuerName: certificate.issuerName,

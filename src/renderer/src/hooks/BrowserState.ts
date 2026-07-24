@@ -155,14 +155,13 @@ export function useBrowserState(initialBrowser?: Browser, settings?: Settings): 
     setBrowser(prev => {
       const newBrowser = {...prev};
 
-      // 如果是被钉住的或收藏的，先停止渲染并清理 webview 引用
+      // 如果是被钉住的或收藏的，先停止渲染并销毁主进程视图
       if (tab.isFavorite || tab.isPinned) {
         cleanupWebView(tab);
 
         newBrowser.tabs[tabId] = {
           ...newBrowser.tabs[tabId],
-          shouldRender: false,
-          webview: { current: null }
+          shouldRender: false
         };
       } else {
         // 否则，从 tab list 中移除，从 space 对应表中移除

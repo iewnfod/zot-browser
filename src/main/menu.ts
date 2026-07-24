@@ -10,7 +10,7 @@ function emitEvent(window: BrowserWindow, eventName: string, ...args: any[]) {
   window.webContents.send(eventName, ...args);
 }
 
-export function MenuTemplate(mainWindow: BrowserWindow) {
+export function MenuTemplate(overlayWindow: BrowserWindow, pageWindow: BrowserWindow) {
   const MenuTemplate: (MenuItemConstructorOptions | MenuItem)[] = [
     {
       label: 'Zot Browser',
@@ -32,7 +32,7 @@ export function MenuTemplate(mainWindow: BrowserWindow) {
         {
           label: 'Toggle SideBar',
           accelerator: 'CmdOrCtrl+Shift+S',
-          click: () => emitEvent(mainWindow, 'menu-toggle-sidebar')
+          click: () => emitEvent(overlayWindow, 'menu-toggle-sidebar')
         },
       ]
     },
@@ -42,27 +42,27 @@ export function MenuTemplate(mainWindow: BrowserWindow) {
         {
           label: 'New Tab',
           accelerator: 'CmdOrCtrl+T',
-          click: () => emitEvent(mainWindow, 'menu-new-tab')
+          click: () => emitEvent(overlayWindow, 'menu-new-tab')
         },
         {
           label: 'Close Tab',
           accelerator: 'CmdOrCtrl+W',
-          click: () => emitEvent(mainWindow, 'menu-close-tab')
+          click: () => emitEvent(overlayWindow, 'menu-close-tab')
         },
         {
           label: 'Reload',
           accelerator: 'CmdOrCtrl+R',
-          click: () => emitEvent(mainWindow, 'menu-reload-tab')
+          click: () => emitEvent(overlayWindow, 'menu-reload-tab')
         },
         {
           label: 'Go Back',
           accelerator: 'CmdOrCtrl+[',
-          click: () => emitEvent(mainWindow, 'menu-tab-go-back')
+          click: () => emitEvent(overlayWindow, 'menu-tab-go-back')
         },
         {
           label: 'Go Forward',
           accelerator: 'CmdOrCtrl+]',
-          click: () => emitEvent(mainWindow, 'menu-tab-go-forward')
+          click: () => emitEvent(overlayWindow, 'menu-tab-go-forward')
         },
         {
           label: 'Select',
@@ -70,47 +70,47 @@ export function MenuTemplate(mainWindow: BrowserWindow) {
             {
               label: 'Tab 1',
               accelerator: 'CmdORCtrl+1',
-              click: () => emitEvent(mainWindow, 'menu-select-tab', 0)
+              click: () => emitEvent(overlayWindow, 'menu-select-tab', 0)
             },
             {
               label: 'Tab 2',
               accelerator: 'CmdORCtrl+2',
-              click: () => emitEvent(mainWindow, 'menu-select-tab', 1)
+              click: () => emitEvent(overlayWindow, 'menu-select-tab', 1)
             },
             {
               label: 'Tab 3',
               accelerator: 'CmdORCtrl+3',
-              click: () => emitEvent(mainWindow, 'menu-select-tab', 2)
+              click: () => emitEvent(overlayWindow, 'menu-select-tab', 2)
             },
             {
               label: 'Tab 4',
               accelerator: 'CmdORCtrl+4',
-              click: () => emitEvent(mainWindow, 'menu-select-tab', 3)
+              click: () => emitEvent(overlayWindow, 'menu-select-tab', 3)
             },
             {
               label: 'Tab 5',
               accelerator: 'CmdORCtrl+5',
-              click: () => emitEvent(mainWindow, 'menu-select-tab', 4)
+              click: () => emitEvent(overlayWindow, 'menu-select-tab', 4)
             },
             {
               label: 'Tab 6',
               accelerator: 'CmdORCtrl+6',
-              click: () => emitEvent(mainWindow, 'menu-select-tab', 5)
+              click: () => emitEvent(overlayWindow, 'menu-select-tab', 5)
             },
             {
               label: 'Tab 7',
               accelerator: 'CmdORCtrl+7',
-              click: () => emitEvent(mainWindow, 'menu-select-tab', 6)
+              click: () => emitEvent(overlayWindow, 'menu-select-tab', 6)
             },
             {
               label: 'Tab 8',
               accelerator: 'CmdORCtrl+8',
-              click: () => emitEvent(mainWindow, 'menu-select-tab', 7)
+              click: () => emitEvent(overlayWindow, 'menu-select-tab', 7)
             },
             {
               label: 'Last Tab',
-              accelerator: 'CmdORCtrl+9',
-              click: () => emitEvent(mainWindow, 'menu-select-last-tab')
+              accelerator: 'CmdOrCtrl+9',
+              click: () => emitEvent(overlayWindow, 'menu-select-last-tab')
             },
           ]
         }
@@ -123,13 +123,14 @@ export function MenuTemplate(mainWindow: BrowserWindow) {
         {
           label: 'Electron Developer Tools',
           accelerator: 'Shift+F12',
-          click: () => emitEvent(mainWindow, 'menu-open-electron-developer')
+          click: () => emitEvent(overlayWindow, 'menu-open-electron-developer')
         },
         { type: 'separator' },
         {
           label: 'Clear Trusted Certificates',
           click: async () => {
-            const { response } = await dialog.showMessageBox(mainWindow, {
+            // 对话框挂载到可聚焦的底层窗口（覆盖窗口 focusable:false）
+            const { response } = await dialog.showMessageBox(pageWindow, {
               type: 'question',
               title: '清除已信任证书',
               message: '确定要清除所有已信任的证书吗？',
@@ -140,7 +141,7 @@ export function MenuTemplate(mainWindow: BrowserWindow) {
             });
             if (response === 0) {
               menuStore.delete('allowedCertificates');
-              await dialog.showMessageBox(mainWindow, {
+              await dialog.showMessageBox(pageWindow, {
                 type: 'info',
                 message: '已清除已信任的证书。',
                 buttons: ['确定']

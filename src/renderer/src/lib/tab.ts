@@ -1,5 +1,3 @@
-import { RefObject } from 'react';
-import { WebViewMethods } from '@renderer/lib/webview';
 import { DEFAULT_CLEAR_TAB_INTERVAL } from '@renderer/lib/settings';
 
 export interface Tab {
@@ -8,7 +6,6 @@ export interface Tab {
   url: string;
   src: string;
   favicon: string;
-  webview: RefObject<WebViewMethods | null>;
   lastAccessed?: number;
   pinnedUrl?: string;
   shouldRender?: boolean;
@@ -17,6 +14,10 @@ export interface Tab {
   spaceId?: string;
   isMediaPlaying?: boolean;
   lastMediaPlayed?: number;
+  // 由主进程 WebContentsView 事件维护（不序列化）
+  canGoBack?: boolean;
+  canGoForward?: boolean;
+  isLoading?: boolean;
 }
 
 export interface SerializableTab {
@@ -48,7 +49,6 @@ export function CreateNewTab(src: string) {
     name: "",
     url: src,
     favicon: "",
-    webview: {current: null},
     lastAccessed: Date.now(),
     pinnedUrl: "",
     shouldRender: false,
@@ -82,7 +82,6 @@ export function deserializeTab(tab: SerializableTab): Tab {
     src: tab.pinnedUrl || tab.url,
     url: tab.url,
     favicon: tab.favicon,
-    webview: {current: null},
     lastAccessed: tab.lastAccessed,
     pinnedUrl: tab.pinnedUrl,
     shouldRender: false,
@@ -94,19 +93,15 @@ export function deserializeTab(tab: SerializableTab): Tab {
   };
 }
 
+/**
+ * 销毁标签页对应的 WebContentsView（主进程层面）。
+ * 保留函数名以减少调用点改动，内部改为通过 IPC 通知主进程。
+ */
 export function cleanupWebView(tab: Tab) {
-  if (tab.webview.current) {
-    try {
-      // 停止任何加载或媒体播放
-      if (tab.webview.current.stop) {
-        tab.webview.current.stop();
-      }
-      if (tab.webview.current.setAudioMuted) {
-        tab.webview.current.setAudioMuted(true);
-      }
-    } catch (e) {
-      console.warn(`Error cleaning up webview for tab ${tab.id}:`, e);
-    }
+  try {
+    window.api.viewDestroy(tab.id);
+  } catch (e) {
+    console.warn(`Error cleaning up webview for tab ${tab.id}:`, e);
   }
 }
 

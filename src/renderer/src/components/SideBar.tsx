@@ -69,51 +69,29 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
   } = props;
 
   function handleGoBack() {
-    if (currentTab && currentTab.webview.current) {
-      try {
-        currentTab.webview.current.goBack();
-      } catch (_) {}
+    if (currentTab) {
+      window.api.viewGoBack(currentTab.id);
     }
   }
 
   function handleGoForward() {
-    if (currentTab && currentTab.webview.current) {
-      try {
-        currentTab.webview.current.goForward();
-      } catch (_) {}
+    if (currentTab) {
+      window.api.viewGoForward(currentTab.id);
     }
   }
 
   function handleReload() {
-    if (currentTab && currentTab.webview.current) {
-      try {
-        currentTab.webview.current.reload();
-      } catch (_) {}
+    if (currentTab) {
+      window.api.viewReload(currentTab.id);
     }
   }
 
-  function canGoForward() {
-    if (currentTab && currentTab.webview.current) {
-      try {
-        return currentTab.webview.current.canGoForward();
-      } catch (_) {
-        return false;
-      }
-    } else {
-      return false;
-    }
+  function canGoForward(): boolean {
+    return currentTab?.canGoForward ?? false;
   }
 
-  function canGoBack() {
-    if (currentTab && currentTab.webview.current) {
-      try {
-        return currentTab.webview.current.canGoBack();
-      } catch (_) {
-        return false;
-      }
-    } else {
-      return false;
-    }
+  function canGoBack(): boolean {
+    return currentTab?.canGoBack ?? false;
   }
 
   const displayUrl = useMemo(() => {
@@ -133,7 +111,7 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
       width: width,
       // @ts-expect-error electron attribute
       appRegion: 'drag',
-    }} id="sidebar-container">
+    }} id="sidebar-container" data-interactive="true">
       {/* Top Buttons */}
       <div className="flex flex-col w-full gap-2" style={{
         // @ts-expect-error electron attribute

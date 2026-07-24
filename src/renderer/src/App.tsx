@@ -1,15 +1,15 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { debounce } from '@renderer/lib/utils';
 import BrowserSideBar from '@renderer/components/SideBar';
 import useNewTabModal from '@renderer/components/modals/NewTabModal';
 import WebViewContainer from '@renderer/components/WebViewContainer';
-import WebView from '@renderer/components/WebView';
 import { LoadMenuEvents, UnLoadMenuEvents } from '@renderer/lib/menu';
 import { getDefaultSettings, Settings } from '@renderer/lib/settings';
 import ResizeSidebarDivider from '@renderer/components/ResizeSidebarDivider';
 import InSecureHttpsCertificateModal from '@renderer/components/modals/InSecureHttpsCertificateModal';
 import useEditTabModal from '@renderer/components/modals/EditTabModal';
 import { useBrowserState } from '@renderer/hooks/BrowserState';
+import { useViews } from '@renderer/hooks/useViews';
 
 function App() {
   // browser
@@ -183,39 +183,109 @@ function App() {
 
   const reloadCurrentTab = useCallback(() => {
     console.log('Try reload current tab:', currentTab);
-    if (currentTab && currentTab.webview.current) {
-      currentTab.webview.current.reload();
+    if (currentTab) {
+      window.api.viewReload(currentTab.id);
     }
   }, [currentTab]);
 
   const currentTabGoBack = useCallback(() => {
     console.log('Try current tab go back:', currentTab);
-    if (currentTab && currentTab.webview.current) {
-      currentTab.webview.current.goBack();
+    if (currentTab) {
+      window.api.viewGoBack(currentTab.id);
     }
   }, [currentTab]);
 
   const currentTabGoForward = useCallback(() => {
     console.log('Try current tab go forward:', currentTab);
-    if (currentTab && currentTab.webview.current) {
-      currentTab.webview.current.goForward();
+    if (currentTab) {
+      window.api.viewGoForward(currentTab.id);
     }
   }, [currentTab]);
 
+  // 加载状态由 useViews 的事件监听写入 tab.isLoading，这里直接派生
   useEffect(() => {
-    if (currentTab && currentTab.webview.current) {
-      try {
-        setIsCurrentTabLoading(currentTab.webview.current.isLoading());
-      } catch (_e) {}
-    } else {
-      setIsCurrentTabLoading(false);
-    }
+    setIsCurrentTabLoading(!!currentTab?.isLoading);
   }, [currentTab]);
+
+  // 页面区域测量：把真实矩形同步给主进程（驱动 WebContentsView 的 setBounds）
+  const pageAreaRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = pageAreaRef.current;
+    if (!el) return;
+    const sendRect = (): void => {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) {
+        window.api.setPageRect({ x: r.left, y: r.top, width: r.width, height: r.height });
+      }
+    };
+    sendRect();
+    const ro = new ResizeObserver(sendRect);
+    ro.observe(el);
+    window.addEventListener('resize', sendRect);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', sendRect);
+    };
+  }, [settings.showSideBar, settings.sidebarWidth]);
+
+  // 选择性点击穿透（主进程轮询方案）：
+  // X11 下覆盖窗口收不到 mousemove，改由主进程轮询光标位置。
+  // 这里把所有 [data-interactive] 元素的矩形上报给主进程，让它判断光标是否在 UI 上。
+  useEffect(() => {
+    const reportRects = (): void => {
+      const els = document.querySelectorAll('[data-interactive="true"]');
+      const rects: Array<{ x: number; y: number; width: number; height: number }> = [];
+      els.forEach((el) => {
+        const r = (el as HTMLElement).getBoundingClientRect();
+        if (r.width > 0 && r.height > 0) {
+          rects.push({ x: r.left, y: r.top, width: r.width, height: r.height });
+        }
+      });
+      window.api.setUiRects(rects);
+    };
+    reportRects();
+    // 窗口尺寸/侧栏变化时重新上报
+    const ro = new ResizeObserver(reportRects);
+    ro.observe(document.body);
+    window.addEventListener('resize', reportRects);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', reportRects);
+    };
+  }, [settings.showSideBar, settings.sidebarWidth]);
+
+  // 模态框开关通知主进程（打开时全屏接收点击）
+  useEffect(() => {
+    const checkModal = (): void => {
+      const hasModal = !!document.querySelector('[role="dialog"]');
+      window.api.setModalOpen(hasModal);
+    };
+    const observer = new MutationObserver(checkModal);
+    observer.observe(document.body, { childList: true, subtree: true });
+    checkModal();
+    return () => observer.disconnect();
+  }, []);
+
+  // 与主进程 WebContentsView 同步：对账视图、当前标签、UA、事件订阅
+  useViews({
+    allTabs,
+    currentTabId: browser.currentTabId,
+    settings,
+    onFaviconsUpdate: handleFaviconsUpdate,
+    onTitleUpdate: handleTitleUpdate,
+    onLoadCommit: handleLoadCommit,
+    onMediaStartedPlaying: (tabId) => updateTab(tabId, { isMediaPlaying: true }),
+    onMediaPaused: (tabId) => updateTab(tabId, { isMediaPlaying: false, lastMediaPlayed: Date.now() }),
+    onClose: closeTab,
+    updateTab
+  });
 
 
   // render
   return (
     <div className="flex flex-col w-[100vw] h-[100vh]">
+      {/* 主 UI 容器。注意：不在此处标 data-interactive，因为它横跨页面区域。
+          各实体 UI（侧栏等）自行标记，确保页面区域穿透到底层网页。 */}
       <div className={`flex flex-row w-fulls h-full grow gap-0`}>
         <BrowserSideBar
           showSideBar={settings.showSideBar}
@@ -246,32 +316,11 @@ function App() {
           )
         }
 
-        {/* WebView */}
-        <WebViewContainer isLoading={isCurrentTabLoading}>
-          {
-            allTabs.map((tab) => (
-              (tab.shouldRender && (
-                <WebView
-                  key={tab.id}
-                  src={tab.src}
-                  ref={tab.webview}
-                  useragent={settings.ua}
-                  partition="persist:shared-partition"
-                  className={`w-full h-full ${tab.id === browser.currentTabId ? '' : 'hidden'}`}
-                  onPageFaviconUpdated={(favicons) => handleFaviconsUpdate(favicons, tab.id)}
-                  onPageTitleUpdated={(title) => handleTitleUpdate(title, tab.id)}
-                  onLoadCommit={(url, isMainFrame) => handleLoadCommit(url, isMainFrame, tab.id)}
-                  onMediaStartedPlaying={() => updateTab(tab.id, {isMediaPlaying: true})}
-                  onMediaPaused={() => updateTab(tab.id, {isMediaPlaying: false, lastMediaPlayed: Date.now()})}
-                  onClose={() => closeTab(tab.id)}
-                />
-              ))
-            ))
-          }
-        </WebViewContainer>
+        {/* 页面区域占位 — 实际页面由主进程 WebContentsView 在底层窗口渲染，这里只放测量锚点 */}
+        <WebViewContainer isLoading={isCurrentTabLoading} pageAreaRef={pageAreaRef} />
       </div>
 
-      {/* Modals */}
+      {/* Modals — 直接在覆盖层显示，无需隐藏页面 */}
       <InSecureHttpsCertificateModal/>
       {EditTabModal}
       {NewTabModal}
