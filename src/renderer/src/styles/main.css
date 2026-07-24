@@ -5,5 +5,14 @@
 
 /* 覆盖窗口透明：html/body/#root 必须显式透明，否则 Chromium 默认白底会挡住底层网页 */
 html, body, #root {
-  background: transparent;
+    background: transparent;
+    --bg-color: white;
+}
+
+.drag {
+    app-region: drag;
+}
+
+.no-drag {
+    app-region: no-drag;
 }

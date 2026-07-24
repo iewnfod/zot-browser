@@ -83,7 +83,7 @@ export default function WebViewContainer({
       <div
         className={`
           w-full ${showWindowButtons ? 'h-10' : 'h-2'} transition-all duration-300 ease-in-out
-          flex flex-row justify-center items-center
+          flex flex-row justify-center items-center bg-(--bg-color)
         `}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
@@ -104,37 +104,43 @@ export default function WebViewContainer({
         {
           !isMac() && (
             <div
-              className={`absolute right-0 top-0 flex flex-row transition-all duration-300 ease-in-out ${showWindowButtons ? 'opacity-100 h-10' : 'opacity-0 h-0'}`}
+              className={`absolute right-0 top-0 flex flex-row transition-all duration-300 ease-in-out ${showWindowButtons ? 'opacity-100 h-8' : 'opacity-0 h-0'}`}
             >
-              <Button isIconOnly variant="light" onPress={window.api.minimize}>
-                <LuMinus size={20}/>
+              <Button size="sm" isIconOnly variant="light" onPress={window.api.minimize}>
+                <LuMinus size={18}/>
               </Button>
               {
                 isMaximized ? (
-                  <Button isIconOnly variant="light" onPress={() => window.api.unmaximize().then(() => getIsMaximized())}>
-                    <LuMinimize size={20}/>
+                  <Button size="sm" isIconOnly variant="light" onPress={() => window.api.unmaximize().then(() => getIsMaximized())}>
+                    <LuMinimize size={18}/>
                   </Button>
                 ) : (
-                  <Button isIconOnly variant="light" onPress={() => window.api.maximize().then(() => getIsMaximized())}>
-                    <LuMaximize size={20}/>
+                  <Button size="sm" isIconOnly variant="light" onPress={() => window.api.maximize().then(() => getIsMaximized())}>
+                    <LuMaximize size={18}/>
                   </Button>
                 )
               }
-              <Button isIconOnly variant="light" color="danger" onPress={window.api.close}>
-                <LuX size={20}/>
+              <Button size="sm" isIconOnly variant="light" color="danger" onPress={window.api.close}>
+                <LuX size={18}/>
               </Button>
             </div>
           )
         }
       </div>
 
-      <div className="w-full h-full grow p-2 pl-0 pt-0 bg-transparent">
-        {/* 整个内容区域透明，让下层网页 view 显示出来 */}
-        <div ref={pageAreaRef} className="w-full h-full bg-transparent">
-          <Card className="w-full h-full overflow-hidden bg-transparent [&>div]:!bg-transparent">
-            {children}
-          </Card>
+      <div className="w-full h-full grow flex flex-row pl-0 pt-0 bg-transparent">
+        <div className="w-full h-full grow flex flex-col">
+          {/* 整个内容区域透明，让下层网页 view 显示出来 */}
+          <div ref={pageAreaRef} className="w-full h-full bg-transparent">
+            <Card className="w-full h-full overflow-hidden bg-transparent">
+              {children}
+            </Card>
+          </div>
+          {/* 底部占位背景 */}
+          <div className="bg-(--bg-color) h-2 w-full"/>
         </div>
+        {/* 右侧占位背景 */}
+        <div className="bg-(--bg-color) w-2 h-full"/>
       </div>
     </div>
   );

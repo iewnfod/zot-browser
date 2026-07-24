@@ -257,7 +257,7 @@ function App() {
 
   // render
   return (
-    <div className="flex flex-col w-[100vw] h-[100vh]">
+    <div className="flex flex-col w-screen h-screen">
       {/* 主 UI 容器 */}
       <div className={`flex flex-row w-fulls h-full grow gap-0`}>
         <BrowserSideBar

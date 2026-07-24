@@ -74,7 +74,7 @@ export default function ResizeSidebarDivider({
 
   return (
     <div
-      className="h-full pb-2 pt-2 pl-0.5 pr-0.5 cursor-ew-resize"
+      className="h-full pb-2 pt-2 pl-0.5 pr-0.5 cursor-ew-resize bg-(--bg-color)"
       onMouseDown={handleDragStart}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
