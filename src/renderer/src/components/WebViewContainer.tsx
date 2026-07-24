@@ -7,12 +7,14 @@ export default function WebViewContainer({
   children,
   hide = false,
   isLoading = false,
-  pageAreaRef
+  pageAreaRef,
+  naturalScroll = false
 } : {
   children?: ReactNode;
   hide?: boolean;
   isLoading?: boolean;
   pageAreaRef?: RefObject<HTMLDivElement | null>;
+  naturalScroll?: boolean;
 }) {
   const [showWindowButtons, setShowWindowButtons] = useState<boolean>(false);
   const [isMaximized, setIsMaximized] = useState<boolean>(false);
@@ -59,6 +61,25 @@ export default function WebViewContainer({
     }
     return () => {};
   }, [isLoading]);
+
+  // 滚轮事件转发：在 pageAreaRef 上捕获 wheel 事件，阻止 UI 处理，转发到主进程 → 网页 view
+  useEffect(() => {
+    const el = pageAreaRef?.current;
+    if (!el) return;
+    const handleWheel = (e: WheelEvent): void => {
+      e.preventDefault();
+      e.stopPropagation();
+      window.api.forwardWheel({
+        deltaX: naturalScroll ? -e.deltaX : e.deltaX,
+        deltaY: naturalScroll ? -e.deltaY : e.deltaY,
+        deltaMode: e.deltaMode,
+        x: e.clientX,
+        y: e.clientY
+      });
+    };
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => el.removeEventListener('wheel', handleWheel);
+  }, [pageAreaRef, naturalScroll]);
 
   return (
     <div

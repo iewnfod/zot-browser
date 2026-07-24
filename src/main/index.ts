@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, screen, WebContentsView } from 'electron';
 import { electronApp, is } from '@electron-toolkit/utils';
 import { join } from 'path';
+import { execSync } from 'child_process';
 import icon from '../../resources/icon.png?asset';
 import { MenuTemplate } from './menu';
 import { Menu } from 'electron';
@@ -12,6 +13,19 @@ import { initViewManager, setUiView } from './viewManager';
 // Linux 下强制 X11（XWayland），保证透明窗口可用。
 if (process.platform === 'linux') {
   app.commandLine.appendSwitch('ozone-platform-hint', 'x11');
+}
+
+/** 检测系统自然滚动偏好。macOS 下读取系统设置，其他平台返回 false。 */
+function detectNaturalScroll(): boolean {
+  if (process.platform === 'darwin') {
+    try {
+      const result = execSync('defaults read -g com.apple.swipescrolldirection', { encoding: 'utf8' }).trim();
+      return result === '1' || result === 'true';
+    } catch {
+      return false;
+    }
+  }
+  return false;
 }
 
 /**
@@ -108,6 +122,10 @@ app.whenReady().then(() => {
 
   ipcMain.handle('scale-factor', () => {
     return screen.getPrimaryDisplay().scaleFactor;
+  });
+
+  ipcMain.handle('get-natural-scroll', () => {
+    return detectNaturalScroll();
   });
 
   const mainWindow = createMainWindow();

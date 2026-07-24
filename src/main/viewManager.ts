@@ -243,4 +243,21 @@ export function initViewManager(win: BrowserWindow): void {
   ipcMain.handle('set-modal-open', (_e, open: boolean) => {
     modalOpen = open;
   });
+
+  // 滚轮事件转发：renderer 侧 DOM wheel 事件 → 主进程 → sendInputEvent 到网页 view
+  ipcMain.handle('forward-wheel', (_e, event: { deltaX: number; deltaY: number; deltaMode: number; x: number; y: number }) => {
+    if (modalOpen || !currentTabId || !pageRect) return;
+    const entry = views.get(currentTabId);
+    if (!entry || entry.view.webContents.isDestroyed()) return;
+    try {
+      entry.view.webContents.sendInputEvent({
+        type: 'mouseWheel',
+        x: event.x - pageRect.x,
+        y: event.y - pageRect.y,
+        deltaX: event.deltaX,
+        deltaY: event.deltaY,
+        canScroll: true
+      });
+    } catch (_) {}
+  });
 }

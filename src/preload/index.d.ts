@@ -24,6 +24,8 @@ declare global {
       setCurrentTab: (tabId: string | null) => Promise<void>,
       setPageRect: (rect: { x: number; y: number; width: number; height: number }) => Promise<void>,
       setModalOpen: (open: boolean) => Promise<void>,
+      forwardWheel: (event: { deltaX: number; deltaY: number; deltaMode: number; x: number; y: number }) => Promise<void>,
+      getNaturalScroll: () => Promise<boolean>,
     },
     store: {
       get: (key: string) => Promise<any>,

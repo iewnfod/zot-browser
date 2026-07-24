@@ -27,7 +27,12 @@ const api = {
   setPageRect: (rect: { x: number; y: number; width: number; height: number }) =>
     ipcRenderer.invoke('set-page-rect', rect),
   // 模态框 z-order 控制
-  setModalOpen: (open: boolean) => ipcRenderer.invoke('set-modal-open', open)
+  setModalOpen: (open: boolean) => ipcRenderer.invoke('set-modal-open', open),
+  // 滚轮事件转发：renderer 侧捕获 wheel 事件 → 主进程 → sendInputEvent 到网页 view
+  forwardWheel: (event: { deltaX: number; deltaY: number; deltaMode: number; x: number; y: number }) =>
+    ipcRenderer.invoke('forward-wheel', event),
+  // 读取系统自然滚动偏好（macOS 检测，其他平台返回 false）
+  getNaturalScroll: () => ipcRenderer.invoke('get-natural-scroll')
 };
 
 const storeApi = {

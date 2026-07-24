@@ -81,7 +81,19 @@ function App() {
     window.store.get('settings').then((data) => {
       if (data) {
         console.log('Load Settings', data);
-        setSettings(data);
+        // 首次运行 naturalScroll 未设置时，读取系统偏好
+        if (data.naturalScroll === undefined) {
+          window.api.getNaturalScroll().then((sysNatural) => {
+            setSettings({ ...data, naturalScroll: sysNatural });
+          });
+        } else {
+          setSettings(data);
+        }
+      } else {
+        // 没有任何设置时，也检查系统偏好
+        window.api.getNaturalScroll().then((sysNatural) => {
+          setSettings({ ...getDefaultSettings(), naturalScroll: sysNatural });
+        });
       }
       setIsSettingsInitialized(true);
     });
@@ -95,6 +107,15 @@ function App() {
       };
     });
   }
+
+  const handleSetNaturalScroll = useCallback((naturalScroll: boolean) => {
+    setSettings((prevSettings) => {
+      return {
+        ...prevSettings,
+        naturalScroll
+      };
+    });
+  }, []);
 
   const debouncedSaveSettings = useMemo(
     () => debounce((settingsToSave: Settings) => {
@@ -277,6 +298,8 @@ function App() {
           width={settings.sidebarWidth}
           openEditTabModal={handleOpenEditTabModal}
           showFullUrl={settings.showFullUrl}
+          naturalScroll={settings.naturalScroll}
+          onNaturalScrollChange={handleSetNaturalScroll}
           className="p-2 pr-0"
         />
 
@@ -290,7 +313,7 @@ function App() {
         }
 
         {/* 页面区域占位 — 实际页面由主进程 WebContentsView 在底层窗口渲染，这里只放测量锚点 */}
-        <WebViewContainer isLoading={isCurrentTabLoading} pageAreaRef={pageAreaRef} />
+        <WebViewContainer isLoading={isCurrentTabLoading} pageAreaRef={pageAreaRef} naturalScroll={settings.naturalScroll} />
       </div>
 
       {/* Modals — 直接在覆盖层显示，无需隐藏页面 */}

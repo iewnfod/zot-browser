@@ -43,6 +43,8 @@ export interface BrowserSideBarProps {
   width?: number;
   openEditTabModal: (content: string) => void;
   showFullUrl?: boolean;
+  naturalScroll?: boolean;
+  onNaturalScrollChange?: (v: boolean) => void;
 }
 
 interface BrowserSideBarContentProps extends BrowserSideBarProps {}
@@ -66,6 +68,8 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
     width,
     openEditTabModal,
     showFullUrl,
+    naturalScroll,
+    onNaturalScrollChange,
   } = props;
 
   function handleGoBack() {
@@ -133,8 +137,23 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
                   <LuMenu size={20}/>
                 </Button>
               </DropdownTrigger>
-              <DropdownMenu>
-                <DropdownItem key="more">More Settings Here</DropdownItem>
+              <DropdownMenu
+                aria-label="Settings"
+                onAction={(key) => {
+                  if (key === 'naturalScroll') {
+                    onNaturalScrollChange?.(!naturalScroll);
+                  }
+                }}
+              >
+                <DropdownItem
+                  key="naturalScroll"
+                  textValue="Natural Scrolling"
+                >
+                  <div className="flex flex-row items-center gap-2">
+                    <span>Natural Scrolling</span>
+                    {naturalScroll && <span className="text-xs text-primary">✓</span>}
+                  </div>
+                </DropdownItem>
               </DropdownMenu>
             </Dropdown>
 
