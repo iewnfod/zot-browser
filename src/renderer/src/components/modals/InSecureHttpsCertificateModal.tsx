@@ -72,6 +72,9 @@ export default function InSecureHttpsCertificateModal() {
       isDismissable={false}
       hideCloseButton
       isKeyboardDismissDisabled
+      classNames={{
+        "wrapper": "no-drag"
+      }}
     >
       <ModalContent>
         {() => (

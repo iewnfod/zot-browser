@@ -135,6 +135,9 @@ export function NewTabModalContent({
       placement="center"
       hideCloseButton
       className="translate-y-[-10vh]"
+      classNames={{
+        "wrapper": "no-drag"
+      }}
     >
       <ModalContent>
         {(onClose) => (

@@ -118,7 +118,7 @@ export default function ContextMenu({
   return createPortal(
     <div
       ref={menuWrapRef}
-      className="fixed z-[100] min-w-[180px] max-w-[320px]"
+      className="fixed z-[100] min-w-[180px] max-w-[320px] no-drag"
       style={{ left: pos.left, top: pos.top }}
       // 阻止右键事件再次触发菜单；阻止 wheel 让底层页面滚动
       onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
