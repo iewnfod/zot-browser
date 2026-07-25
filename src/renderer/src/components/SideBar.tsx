@@ -16,7 +16,8 @@ import {
   LuPanelLeftClose,
   LuPanelLeftOpen,
   LuPlus,
-  LuRotateCw, LuSlidersHorizontal
+  LuPuzzle,
+  LuRotateCw, LuSettings, LuSlidersHorizontal
 } from 'react-icons/lu';
 import { Tab } from '@renderer/lib/tab';
 import FavoriteTabCard from '@renderer/components/FavoriteTabCard';
@@ -43,8 +44,10 @@ export interface BrowserSideBarProps {
   width?: number;
   openEditTabModal: (content: string) => void;
   showFullUrl?: boolean;
-  naturalScroll?: boolean;
-  onNaturalScrollChange?: (v: boolean) => void;
+  /** 打开 zot://settings 内部页 */
+  openSettings: () => void;
+  /** 打开 zot://extensions 内部页 */
+  openExtensions: () => void;
 }
 
 interface BrowserSideBarContentProps extends BrowserSideBarProps {}
@@ -67,8 +70,8 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
     width,
     openEditTabModal,
     showFullUrl,
-    naturalScroll,
-    onNaturalScrollChange,
+    openSettings,
+    openExtensions,
   } = props;
 
   function handleGoBack() {
@@ -136,22 +139,22 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
                   <LuMenu size={20}/>
                 </Button>
               </DropdownTrigger>
-              <DropdownMenu
-                aria-label="Settings"
-                onAction={(key) => {
-                  if (key === 'naturalScroll') {
-                    onNaturalScrollChange?.(!naturalScroll);
-                  }
-                }}
-              >
+              <DropdownMenu aria-label="More">
                 <DropdownItem
-                  key="naturalScroll"
-                  textValue="Natural Scrolling"
+                  key="settings"
+                  textValue="Settings"
+                  startContent={<LuSettings size={15}/>}
+                  onPress={openSettings}
                 >
-                  <div className="flex flex-row items-center gap-2">
-                    <span>Natural Scrolling</span>
-                    {naturalScroll && <span className="text-xs text-primary">✓</span>}
-                  </div>
+                  Settings
+                </DropdownItem>
+                <DropdownItem
+                  key="extensions"
+                  textValue="Extensions"
+                  startContent={<LuPuzzle size={15}/>}
+                  onPress={openExtensions}
+                >
+                  Extensions
                 </DropdownItem>
               </DropdownMenu>
             </Dropdown>

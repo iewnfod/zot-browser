@@ -1,4 +1,6 @@
 import { BrowserWindow, ipcMain, Rectangle, WebContentsView } from 'electron';
+import { join } from 'path';
+import { isInternalPageURL, isZotURL, resolveZotURL } from './zotProtocol';
 
 const PARTITION = 'persist:shared-partition';
 const ZERO_RECT: Rectangle = { x: 0, y: 0, width: 0, height: 0 };
@@ -125,8 +127,15 @@ function attachForwarders(tabId: string, wc: Electron.WebContents): void {
     }
   };
 
-  wc.on('did-navigate', (_e, url) => { send('view-did-navigate', tabId, url, true); emitNavState(tabId, wc); });
-  wc.on('did-navigate-in-page', (_e, url, isMainFrame) => { send('view-did-navigate', tabId, url, isMainFrame); emitNavState(tabId, wc); });
+  // zot:// 内部页：底层加载的是本地 file:// 或 dev URL，但对 UI 报告的地址
+  // 始终应为原始的 zot:// URL（保持标签栏 / 地址栏显示不变）。
+  const displayURL = (realURL: string): string => {
+    const entry = views.get(tabId);
+    return entry && isZotURL(entry.loadedSrc) ? entry.loadedSrc : realURL;
+  };
+
+  wc.on('did-navigate', (_e, url) => { send('view-did-navigate', tabId, displayURL(url), true); emitNavState(tabId, wc); });
+  wc.on('did-navigate-in-page', (_e, url, isMainFrame) => { send('view-did-navigate', tabId, displayURL(url), isMainFrame); emitNavState(tabId, wc); });
   wc.on('page-title-updated', (_e, title) => send('view-page-title-updated', tabId, title));
   wc.on('page-favicon-updated', (_e, favicons) => send('view-page-favicon-updated', tabId, favicons));
   wc.on('did-start-loading', () => send('view-did-start-loading', tabId));
@@ -166,15 +175,35 @@ function attachForwarders(tabId: string, wc: Electron.WebContents): void {
   });
 }
 
+/**
+ * 根据要加载的 src 决定 WebContentsView 的 webPreferences。
+ *
+ * - 普通网页：严格隔离（sandbox:true，无 preload）
+ * - zot:// 内部页（settings/extensions）：和 UI view 同款——注入 preload、关闭 sandbox，
+ *   使 window.store / window.api 可用（内部页需要读写设置）
+ */
+function webPrefsForSrc(src: string): Electron.WebPreferences {
+  const base = {
+    partition: PARTITION,
+    contextIsolation: true,
+    nodeIntegration: false,
+    spellcheck: false,
+  };
+  if (isInternalPageURL(src)) {
+    return {
+      ...base,
+      sandbox: false,
+      preload: join(__dirname, '../preload/index.js'),
+    };
+  }
+  return { ...base, sandbox: true };
+}
+
 function createView(tabId: string, src: string, userAgent?: string): void {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   if (views.has(tabId)) return;
 
-  const view = new WebContentsView({
-    webPreferences: {
-      partition: PARTITION, contextIsolation: true, nodeIntegration: false, spellcheck: false, sandbox: true
-    }
-  });
+  const view = new WebContentsView({ webPreferences: webPrefsForSrc(src) });
 
   if (userAgent) {
     try { view.webContents.setUserAgent(userAgent); } catch (e) {
@@ -191,7 +220,9 @@ function createView(tabId: string, src: string, userAgent?: string): void {
   views.set(tabId, { view, loadedSrc: src });
 
   try {
-    if (src) { view.webContents.loadURL(src).catch((e) => { console.warn('[viewManager] loadURL failed for', tabId, src, e); }); }
+    // zot:// 内部页：加载解析后的真实本地 URL，但 loadedSrc 保留 zot:// 原样（标签栏显示用）
+    const realURL = resolveZotURL(src) ?? src;
+    if (realURL) { view.webContents.loadURL(realURL).catch((e) => { console.warn('[viewManager] loadURL failed for', tabId, realURL, e); }); }
   } catch (e) { console.warn('[viewManager] loadURL threw for', tabId, src, e); }
 
   relayout();
@@ -223,9 +254,11 @@ export function initViewManager(win: BrowserWindow): void {
     if (entry) {
       if (src && src !== entry.loadedSrc) {
         entry.loadedSrc = src;
+        // zot:// 内部页：加载解析后的真实 URL，loadedSrc 仍保留 zot:// 原值
+        const realURL = resolveZotURL(src) ?? src;
         try {
           if (!entry.view.webContents.isDestroyed())
-            entry.view.webContents.loadURL(src).catch((err) => { console.warn('[viewManager] reload on ensure failed for', tabId, err); });
+            entry.view.webContents.loadURL(realURL).catch((err) => { console.warn('[viewManager] reload on ensure failed for', tabId, realURL, err); });
         } catch (err) { console.warn('[viewManager] reload on ensure threw for', tabId, err); }
       }
       if (ua) { try { entry.view.webContents.setUserAgent(ua); } catch (_) {} }

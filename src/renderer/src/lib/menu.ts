@@ -7,6 +7,8 @@ export interface LoadMenuEventsProps {
   toggleSideBar: () => void;
   selectTabByIndex: (index: number) => void;
   selectLastTab: () => void;
+  openSettings: () => void;
+  openExtensions: () => void;
 }
 
 export function LoadMenuEvents(props: LoadMenuEventsProps) {
@@ -18,6 +20,8 @@ export function LoadMenuEvents(props: LoadMenuEventsProps) {
   window.electron.ipcRenderer.on('menu-toggle-sidebar', props.toggleSideBar);
   window.electron.ipcRenderer.on('menu-select-tab', (_e, index: number) => props.selectTabByIndex(index));
   window.electron.ipcRenderer.on('menu-select-last-tab', props.selectLastTab);
+  window.electron.ipcRenderer.on('menu-open-settings', props.openSettings);
+  window.electron.ipcRenderer.on('menu-open-extensions', props.openExtensions);
   console.log('Finish register menu events!');
 }
 
@@ -30,5 +34,7 @@ export function UnLoadMenuEvents() {
   window.electron.ipcRenderer.removeAllListeners('menu-toggle-sidebar');
   window.electron.ipcRenderer.removeAllListeners('menu-select-tab');
   window.electron.ipcRenderer.removeAllListeners('menu-select-last-tab');
+  window.electron.ipcRenderer.removeAllListeners('menu-open-settings');
+  window.electron.ipcRenderer.removeAllListeners('menu-open-extensions');
   console.log('Finish unregister menu events!');
 }

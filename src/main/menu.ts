@@ -46,6 +46,21 @@ export function MenuTemplate(mainWindow: BrowserWindow) {
       ]
     },
     {
+      label: 'Window',
+      submenu: [
+        {
+          label: 'Settings…',
+          accelerator: 'CmdOrCtrl+,',
+          click: () => emitEvent('menu-open-settings')
+        },
+        {
+          label: 'Extensions…',
+          accelerator: 'CmdOrCtrl+Shift+E',
+          click: () => emitEvent('menu-open-extensions')
+        },
+      ]
+    },
+    {
       label: 'Tab',
       submenu: [
         {

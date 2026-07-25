@@ -13,6 +13,11 @@ export function normalizeUrl(input: string): string {
     return 'https://www.google.com';
   }
 
+  // zot:// 内部页地址原样返回（zot://settings、zot://extensions 等）
+  if (trimmedInput.toLowerCase().startsWith('zot://')) {
+    return trimmedInput;
+  }
+
   const specialProtocols = ['http:', 'https:', 'file:', 'ftp:', 'chrome:', 'about:', 'mailto:'];
   const hasKnownProtocol = specialProtocols.some(protocol =>
     trimmedInput.toLowerCase().startsWith(protocol)

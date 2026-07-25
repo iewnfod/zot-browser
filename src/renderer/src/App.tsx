@@ -67,7 +67,9 @@ function App() {
       currentTabGoForward,
       toggleSideBar,
       selectTabByIndex,
-      selectLastTab
+      selectLastTab,
+      openSettings: () => createTab('zot://settings'),
+      openExtensions: () => createTab('zot://extensions')
     });
 
     // 监听从主进程发送的新标签页打开请求
@@ -118,22 +120,32 @@ function App() {
     });
   }
 
-  const handleSetNaturalScroll = useCallback((naturalScroll: boolean) => {
-    setSettings((prevSettings) => {
-      return {
-        ...prevSettings,
-        naturalScroll
-      };
-    });
-  }, []);
-
   const debouncedSaveSettings = useMemo(
     () => debounce((settingsToSave: Settings) => {
+      if (skipNextSaveRef.current) {
+        skipNextSaveRef.current = false;
+        return;
+      }
       console.log("Debounced saving settings to store:", settingsToSave);
       window.store.set('settings', settingsToSave);
     }, 500),
     []
   );
+
+  // 来自别处（如 zot://settings 页面）的 settings 变更广播：
+  // 同步到本地状态使 UI 即时应用。设 skipNextSaveRef 避免本次 setSettings
+  // 又触发 debouncedSaveSettings → store.set → 再次广播的回环。
+  const skipNextSaveRef = useRef(false);
+  useEffect(() => {
+    const onSettingsChanged = (_e: unknown, next: Settings): void => {
+      skipNextSaveRef.current = true;
+      setSettings(next);
+    };
+    window.electron.ipcRenderer.on('settings-changed', onSettingsChanged);
+    return () => {
+      window.electron.ipcRenderer.removeAllListeners('settings-changed');
+    };
+  }, []);
 
   useEffect(() => {
     if (isSettingsInitialized && settings) {
@@ -476,8 +488,8 @@ function App() {
           width={settings.sidebarWidth}
           openEditTabModal={handleOpenEditTabModal}
           showFullUrl={settings.showFullUrl}
-          naturalScroll={settings.naturalScroll}
-          onNaturalScrollChange={handleSetNaturalScroll}
+          openSettings={() => createTab('zot://settings')}
+          openExtensions={() => createTab('zot://extensions')}
           className="p-2 pr-0"
         />
 

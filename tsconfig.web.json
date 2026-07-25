@@ -4,6 +4,8 @@
     "src/renderer/src/env.d.ts",
     "src/renderer/src/**/*",
     "src/renderer/src/**/*.tsx",
+    "src/renderer/settings/src/**/*",
+    "src/renderer/extensions/src/**/*",
     "src/preload/*.d.ts"
   ],
   "compilerOptions": {
