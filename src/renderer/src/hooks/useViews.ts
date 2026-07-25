@@ -17,6 +17,12 @@ export interface UseViewsCallbacks {
   onClose: (tabId: string) => void;
   /** 更新 tab 字段 */
   updateTab: (tabId: string, updates: Partial<Tab>) => void;
+  /** 光标类型变化（仅当前标签） */
+  onCursorChanged?: (type: string, tabId: string) => void;
+  /** 悬停链接目标 URL 变化（仅当前标签） */
+  onTargetURL?: (url: string, tabId: string) => void;
+  /** 网页内右键菜单（仅当前标签） */
+  onContextMenu?: (params: import('@renderer/lib/useWebUIState').WebContextMenuParams, tabId: string) => void;
 }
 
 export interface UseViewsArgs extends UseViewsCallbacks {
@@ -43,7 +49,10 @@ export function useViews(args: UseViewsArgs): void {
     onMediaStartedPlaying,
     onMediaPaused,
     onClose,
-    updateTab
+    updateTab,
+    onCursorChanged,
+    onTargetURL,
+    onContextMenu
   } = args;
 
   // 1. 对账：按 shouldRender 增删视图
@@ -100,6 +109,19 @@ export function useViews(args: UseViewsArgs): void {
     const onCloseEvent = (_e: unknown, tabId: string): void => {
       onClose(tabId);
     };
+    const onCursorEvent = (_e: unknown, tabId: string, type: string): void => {
+      onCursorChanged?.(type, tabId);
+    };
+    const onTargetURLEvent = (_e: unknown, tabId: string, url: string): void => {
+      onTargetURL?.(url, tabId);
+    };
+    const onContextMenuEvent = (
+      _e: unknown,
+      tabId: string,
+      params: import('@renderer/lib/useWebUIState').WebContextMenuParams
+    ): void => {
+      onContextMenu?.(params, tabId);
+    };
 
     ipc.on('view-did-navigate', onDidNavigate);
     ipc.on('view-nav-state', onNavState);
@@ -110,6 +132,9 @@ export function useViews(args: UseViewsArgs): void {
     ipc.on('view-media-started-playing', onMediaStart);
     ipc.on('view-media-paused', onMediaPause);
     ipc.on('view-close', onCloseEvent);
+    ipc.on('view-cursor-changed', onCursorEvent);
+    ipc.on('view-target-url', onTargetURLEvent);
+    ipc.on('view-context-menu', onContextMenuEvent);
 
     return () => {
       ipc.removeAllListeners('view-did-navigate');
@@ -121,6 +146,9 @@ export function useViews(args: UseViewsArgs): void {
       ipc.removeAllListeners('view-media-started-playing');
       ipc.removeAllListeners('view-media-paused');
       ipc.removeAllListeners('view-close');
+      ipc.removeAllListeners('view-cursor-changed');
+      ipc.removeAllListeners('view-target-url');
+      ipc.removeAllListeners('view-context-menu');
     };
     // 回调引用可能变化，但事件载荷只携带 tabId，内部调 updateTab 等；
     // 为避免频繁重订阅，这里只挂载一次。callback 通过闭包捕获最新引用有风险，
@@ -133,6 +161,9 @@ export function useViews(args: UseViewsArgs): void {
     onMediaStartedPlaying,
     onMediaPaused,
     onClose,
-    updateTab
+    updateTab,
+    onCursorChanged,
+    onTargetURL,
+    onContextMenu
   ]);
 }

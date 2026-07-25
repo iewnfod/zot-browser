@@ -134,6 +134,36 @@ function attachForwarders(tabId: string, wc: Electron.WebContents): void {
   wc.on('media-started-playing', () => send('view-media-started-playing', tabId));
   wc.on('media-paused', () => send('view-media-paused', tabId));
   (wc as unknown as { on: (e: string, l: () => void) => void }).on('close', () => send('view-close', tabId));
+
+  // —— 网页端 → UI 同步事件（仅当前标签转发，避免后台标签干扰）——
+  // 光标变化（悬停链接/文本/可拖拽元素时光标类型改变）
+  wc.on('cursor-changed', (_e, type) => {
+    if (tabId !== currentTabId) return;
+    send('view-cursor-changed', tabId, type);
+  });
+  // 悬停链接目标 URL（鼠标移到 <a> 上时触发）
+  wc.on('update-target-url', (_e, url) => {
+    if (tabId !== currentTabId) return;
+    send('view-target-url', tabId, url);
+  });
+  // 网页内右键菜单。params.x/y 是网页 view 内坐标，需偏移到 UI 层坐标系。
+  wc.on('context-menu', (_e, params) => {
+    if (tabId !== currentTabId) return;
+    const rect = pageRect ?? ZERO_RECT;
+    send('view-context-menu', tabId, {
+      x: (params.x ?? 0) + rect.x,
+      y: (params.y ?? 0) + rect.y,
+      linkURL: params.linkURL,
+      linkText: params.linkText,
+      pageURL: params.pageURL,
+      srcURL: params.srcURL,
+      mediaType: params.mediaType,
+      hasImageContents: params.hasImageContents,
+      isEditable: params.isEditable,
+      selectionText: params.selectionText,
+      editFlags: params.editFlags
+    });
+  });
 }
 
 function createView(tabId: string, src: string, userAgent?: string): void {
@@ -222,6 +252,33 @@ export function initViewManager(win: BrowserWindow): void {
   ipcMain.handle('view-reload', (_e, tabId: string) => withWc(tabId, (wc) => wc.reload()));
   ipcMain.handle('view-stop', (_e, tabId: string) => withWc(tabId, (wc) => wc.stop()));
   ipcMain.handle('view-set-muted', (_e, tabId: string, muted: boolean) => withWc(tabId, (wc) => wc.setAudioMuted(muted)));
+
+  // 编辑操作（右键菜单触发），统一走 withWc 模式
+  ipcMain.handle('view-cut', (_e, tabId: string) => withWc(tabId, (wc) => wc.cut()));
+  ipcMain.handle('view-copy', (_e, tabId: string) => withWc(tabId, (wc) => wc.copy()));
+  ipcMain.handle('view-paste', (_e, tabId: string) => withWc(tabId, (wc) => wc.paste()));
+  ipcMain.handle('view-delete', (_e, tabId: string) => withWc(tabId, (wc) => wc.delete()));
+  ipcMain.handle('view-select-all', (_e, tabId: string) => withWc(tabId, (wc) => wc.selectAll()));
+  ipcMain.handle('view-undo', (_e, tabId: string) => withWc(tabId, (wc) => wc.undo()));
+  ipcMain.handle('view-redo', (_e, tabId: string) => withWc(tabId, (wc) => wc.redo()));
+  // 开发者工具 / 检查元素。x,y 为 UI 层坐标，需转回网页 view 坐标系。
+  ipcMain.handle('view-inspect', (_e, tabId: string, x: number, y: number) => {
+    withWc(tabId, (wc) => {
+      const rect = pageRect ?? ZERO_RECT;
+      wc.openDevTools({ mode: 'detach' });
+      // inspectElement 坐标在网页 view 内
+      wc.inspectElement(Math.round(x - rect.x), Math.round(y - rect.y));
+    });
+  });
+  ipcMain.handle('view-open-devtools', (_e, tabId: string) =>
+    withWc(tabId, (wc) => wc.openDevTools({ mode: 'detach' })));
+  // 查看页面源码
+  ipcMain.handle('view-view-source', (_e, tabId: string) => {
+    withWc(tabId, (wc) => {
+      const url = wc.getURL();
+      wc.loadURL('view-source:' + url).catch((err) => console.warn('[viewManager] view-source failed', tabId, err));
+    });
+  });
 
   ipcMain.handle('view-set-user-agent', (_e, ua: string) => {
     for (const entry of views.values()) {

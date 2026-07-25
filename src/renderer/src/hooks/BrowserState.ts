@@ -165,6 +165,11 @@ export function useBrowserState(initialBrowser?: Browser, settings?: Settings): 
         };
       } else {
         // 否则，从 tab list 中移除，从 space 对应表中移除
+        // 注意：删除前必须先销毁主进程的 WebContentsView。
+        // useViews 的对账 effect 只遍历 allTabs，tab 一旦从状态删除，
+        // 循环里就碰不到它，viewDestroy 永远不会被调用 → 视图成为孤儿
+        // （音频继续播放等）。所以这里同步销毁。
+        cleanupWebView(tab);
         delete newBrowser.tabs[tabId];
 
         if (tab.spaceId) {

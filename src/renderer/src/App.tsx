@@ -10,6 +10,10 @@ import InSecureHttpsCertificateModal from '@renderer/components/modals/InSecureH
 import useEditTabModal from '@renderer/components/modals/EditTabModal';
 import { useBrowserState } from '@renderer/hooks/BrowserState';
 import { useViews } from '@renderer/hooks/useViews';
+import { useWebUIState, WebContextMenuParams } from '@renderer/lib/useWebUIState';
+import ContextMenu, { ContextMenuItem } from '@renderer/components/ContextMenu';
+import { Tab } from '@renderer/lib/tab';
+import { LuArrowLeft, LuArrowRight, LuClipboard, LuCopy, LuEye, LuImage, LuLink2, LuPin, LuRotateCw, LuScissors, LuSquareAsterisk, LuTrash2, LuType, LuX } from 'react-icons/lu';
 
 function App() {
   // browser
@@ -45,6 +49,11 @@ function App() {
 
   // others
   const [isCurrentTabLoading, setIsCurrentTabLoading] = useState<boolean>(false);
+
+  // 网页端瞬态 UI 状态（光标 / 悬停链接 / 网页右键菜单），独立于 browser store
+  const webUI = useWebUIState(browser.currentTabId);
+  // 标签右键菜单状态：{ tab, x, y }，null 表示关闭
+  const [tabContextMenu, setTabContextMenu] = useState<{ tab: Tab; x: number; y: number } | null>(null);
 
 
   // menu
@@ -249,17 +258,28 @@ function App() {
     };
   }, [settings.showSideBar, settings.sidebarWidth]);
 
-  // 模态框 z-order：打开时将 UI view 提升到网页之上，关闭时恢复
+  // 阻断网页输入转发：模态框（dialog）或右键菜单打开时，
+  // 通知主进程停止把输入事件转发给下层网页 view，避免"同时点到菜单和网页"。
+  // 右键菜单由 React 状态驱动（即时）；dialog 由第三方组件挂载，用 MutationObserver 兜底。
+  const menusOpen = !!tabContextMenu || !!webUI.contextMenu;
   useEffect(() => {
-    const checkModal = (): void => {
-      const hasModal = !!document.querySelector('[role="dialog"]');
-      window.api.setModalOpen(hasModal);
+    // 右键菜单打开 → 必然阻断；关闭 → 退回按 dialog 实际状态决定
+    if (menusOpen) {
+      window.api.setModalOpen(true);
+    } else {
+      window.api.setModalOpen(!!document.querySelector('[role="dialog"]'));
+    }
+  }, [menusOpen]);
+  useEffect(() => {
+    const checkDialog = (): void => {
+      if (menusOpen) return; // 右键菜单打开时不干预
+      window.api.setModalOpen(!!document.querySelector('[role="dialog"]'));
     };
-    const observer = new MutationObserver(checkModal);
+    const observer = new MutationObserver(checkDialog);
     observer.observe(document.body, { childList: true, subtree: true });
-    checkModal();
+    checkDialog();
     return () => observer.disconnect();
-  }, []);
+  }, [menusOpen]);
 
   // 与主进程 WebContentsView 同步：对账视图、当前标签、UA、事件订阅
   useViews({
@@ -272,8 +292,164 @@ function App() {
     onMediaStartedPlaying: (tabId) => updateTab(tabId, { isMediaPlaying: true }),
     onMediaPaused: (tabId) => updateTab(tabId, { isMediaPlaying: false, lastMediaPlayed: Date.now() }),
     onClose: closeTab,
-    updateTab
+    updateTab,
+    onCursorChanged: (type) => webUI.setCursorType(type),
+    onTargetURL: (url) => webUI.setHoverURL(url),
+    onContextMenu: (params: WebContextMenuParams) =>
+      webUI.setContextMenu({ tabId: browser.currentTabId ?? '', x: params.x, y: params.y, params })
   });
+
+  // —— 标签右键菜单项（保持原有 固定/选择/关闭 三个动作，视觉规范化）——
+  const tabContextMenuItems: ContextMenuItem[] = useMemo(() => {
+    const t = tabContextMenu?.tab;
+    if (!t) return [];
+    const items: ContextMenuItem[] = [];
+    items.push({
+      key: 'pin',
+      label: t.isPinned ? 'Unpin' : 'Pin',
+      startContent: <LuPin size={15} />,
+      onAction: () => (t.isPinned ? unpinTab(t.id) : pinTab(t.id))
+    });
+    items.push({
+      key: 'select',
+      label: 'Select',
+      startContent: <LuSquareAsterisk size={15} />,
+      isDisabled: currentTab ? currentTab.id === t.id : false,
+      onAction: () => selectTab(t.id)
+    });
+    items.push({ key: 'div1', divider: true });
+    items.push({
+      key: 'close',
+      label: 'Close',
+      color: 'danger',
+      startContent: <LuX size={15} />,
+      onAction: () => closeTab(t.id)
+    });
+    return items;
+  }, [tabContextMenu, currentTab, pinTab, unpinTab, selectTab, closeTab]);
+
+  // —— 网页内右键菜单项（按上下文动态显隐）——
+  const webContextMenuItems: ContextMenuItem[] = useMemo(() => {
+    const ctx = webUI.contextMenu;
+    if (!ctx) return [];
+    const p = ctx.params;
+    const tabId = ctx.tabId;
+    const tab = allTabs.find((t) => t.id === tabId);
+    const items: ContextMenuItem[] = [];
+
+    // 导航组
+    items.push({
+      key: 'back',
+      label: 'Back',
+      startContent: <LuArrowLeft size={15} />,
+      isDisabled: !tab?.canGoBack,
+      onAction: () => window.api.viewGoBack(tabId)
+    });
+    items.push({
+      key: 'forward',
+      label: 'Forward',
+      startContent: <LuArrowRight size={15} />,
+      isDisabled: !tab?.canGoForward,
+      onAction: () => window.api.viewGoForward(tabId)
+    });
+    items.push({
+      key: 'reload',
+      label: 'Reload',
+      startContent: <LuRotateCw size={15} />,
+      onAction: () => window.api.viewReload(tabId)
+    });
+    items.push({ key: 'div-nav', divider: true });
+
+    // 链接组
+    if (p.linkURL) {
+      items.push({
+        key: 'open-link',
+        label: 'Open link in new tab',
+        startContent: <LuLink2 size={15} />,
+        onAction: () => createTab(p.linkURL)
+      });
+      items.push({
+        key: 'copy-link',
+        label: 'Copy link address',
+        startContent: <LuCopy size={15} />,
+        onAction: () => navigator.clipboard?.writeText(p.linkURL).catch(() => {})
+      });
+      items.push({ key: 'div-link', divider: true });
+    }
+
+    // 媒体组（图片）
+    if (p.mediaType === 'image') {
+      items.push({
+        key: 'copy-image-addr',
+        label: 'Copy image address',
+        startContent: <LuImage size={15} />,
+        onAction: () => navigator.clipboard?.writeText(p.srcURL).catch(() => {})
+      });
+      items.push({ key: 'div-media', divider: true });
+    }
+
+    // 编辑组（可编辑或有选区时显示，按 editFlags 动态显隐）
+    const showEdit = p.isEditable || !!p.selectionText;
+    if (showEdit) {
+      const ef = p.editFlags;
+      if (p.isEditable) {
+        items.push({
+          key: 'cut',
+          label: 'Cut',
+          startContent: <LuScissors size={15} />,
+          isDisabled: !ef?.canCut,
+          onAction: () => window.api.viewCut(tabId)
+        });
+      }
+      items.push({
+        key: 'copy',
+        label: 'Copy',
+        startContent: <LuCopy size={15} />,
+        isDisabled: !ef?.canCopy,
+        onAction: () => window.api.viewCopy(tabId)
+      });
+      if (p.isEditable) {
+        items.push({
+          key: 'paste',
+          label: 'Paste',
+          startContent: <LuClipboard size={15} />,
+          isDisabled: !ef?.canPaste,
+          onAction: () => window.api.viewPaste(tabId)
+        });
+        items.push({
+          key: 'delete',
+          label: 'Delete',
+          startContent: <LuTrash2 size={15} />,
+          isDisabled: !ef?.canDelete,
+          onAction: () => window.api.viewDelete(tabId)
+        });
+      }
+      items.push({
+        key: 'select-all',
+        label: 'Select all',
+        startContent: <LuType size={15} />,
+        isDisabled: !ef?.canSelectAll,
+        onAction: () => window.api.viewSelectAll(tabId)
+      });
+      items.push({ key: 'div-edit', divider: true });
+    }
+
+    // 开发者组
+    items.push({
+      key: 'view-source',
+      label: 'View page source',
+      startContent: <LuEye size={15} />,
+      onAction: () => window.api.viewViewSource(tabId)
+    });
+    items.push({
+      key: 'inspect',
+      label: 'Inspect',
+      startContent: <LuEye size={15} />,
+      onAction: () => window.api.viewInspect(tabId, ctx.x, ctx.y)
+    });
+
+    return items;
+  }, [webUI.contextMenu, allTabs, createTab]);
 
 
   // render
@@ -291,8 +467,7 @@ function App() {
           openNewTabModal={openNewTabModal}
           onTabClose={closeTab}
           onTabSelect={selectTab}
-          onTabPin={pinTab}
-          onTabUnpin={unpinTab}
+          onTabContextMenu={(e, tab) => setTabContextMenu({ tab, x: e.clientX, y: e.clientY })}
           setSiteBarState={handleSetSiteBarState}
           spaces={Object.values(browser.spaces)}
           width={settings.sidebarWidth}
@@ -313,13 +488,37 @@ function App() {
         }
 
         {/* 页面区域占位 — 实际页面由主进程 WebContentsView 在底层窗口渲染，这里只放测量锚点 */}
-        <WebViewContainer isLoading={isCurrentTabLoading} pageAreaRef={pageAreaRef} naturalScroll={settings.naturalScroll} />
+        <WebViewContainer
+          isLoading={isCurrentTabLoading}
+          pageAreaRef={pageAreaRef}
+          naturalScroll={settings.naturalScroll}
+          cursorType={webUI.cursorType}
+          hoverURL={webUI.hoverURL}
+        />
       </div>
 
       {/* Modals — 直接在覆盖层显示，无需隐藏页面 */}
       <InSecureHttpsCertificateModal/>
       {EditTabModal}
       {NewTabModal}
+
+      {/* 标签右键菜单 */}
+      <ContextMenu
+        open={!!tabContextMenu}
+        x={tabContextMenu?.x ?? 0}
+        y={tabContextMenu?.y ?? 0}
+        onClose={() => setTabContextMenu(null)}
+        items={tabContextMenuItems}
+      />
+
+      {/* 网页内右键菜单 */}
+      <ContextMenu
+        open={!!webUI.contextMenu}
+        x={webUI.contextMenu?.x ?? 0}
+        y={webUI.contextMenu?.y ?? 0}
+        onClose={() => webUI.setContextMenu(null)}
+        items={webContextMenuItems}
+      />
     </div>
   );
 }

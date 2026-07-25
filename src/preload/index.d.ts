@@ -20,6 +20,18 @@ declare global {
       viewReload: (tabId: string) => Promise<void>,
       viewStop: (tabId: string) => Promise<void>,
       viewSetMuted: (tabId: string, muted: boolean) => Promise<void>,
+      // 编辑操作（网页右键菜单触发）
+      viewCut: (tabId: string) => Promise<void>,
+      viewCopy: (tabId: string) => Promise<void>,
+      viewPaste: (tabId: string) => Promise<void>,
+      viewDelete: (tabId: string) => Promise<void>,
+      viewSelectAll: (tabId: string) => Promise<void>,
+      viewUndo: (tabId: string) => Promise<void>,
+      viewRedo: (tabId: string) => Promise<void>,
+      // 开发者
+      viewInspect: (tabId: string, x: number, y: number) => Promise<void>,
+      viewOpenDevTools: (tabId: string) => Promise<void>,
+      viewViewSource: (tabId: string) => Promise<void>,
       viewSetUserAgent: (ua: string) => Promise<void>,
       setCurrentTab: (tabId: string | null) => Promise<void>,
       setPageRect: (rect: { x: number; y: number; width: number; height: number }) => Promise<void>,

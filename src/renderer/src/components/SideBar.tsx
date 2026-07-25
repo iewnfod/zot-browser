@@ -36,8 +36,8 @@ export interface BrowserSideBarProps {
   onTabClose: (tabId: string) => void;
   onTabSelect: (tabId: string) => void;
   className?: string;
-  onTabPin: (tabId: string) => void;
-  onTabUnpin: (tabId: string) => void;
+  /** 标签右键：上报原生事件 + 目标 tab，由上层渲染统一右键菜单 */
+  onTabContextMenu: (e: React.MouseEvent, tab: Tab) => void;
   setSiteBarState: (state: boolean) => void;
   spaces: Space[];
   width?: number;
@@ -61,8 +61,7 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
     onTabClose,
     onTabSelect,
     className,
-    onTabPin,
-    onTabUnpin,
+    onTabContextMenu,
     setSiteBarState,
     spaces,
     width,
@@ -252,7 +251,7 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
                 onSelect={() => onTabSelect(tab.id)}
                 isSelected={currentTab ? currentTab.id === tab.id : false}
                 isPinned={true}
-                onUnpin={() => onTabUnpin(tab.id)}
+                onContextMenuOpen={(e) => onTabContextMenu(e, tab)}
                 render={tab.shouldRender}
               />
             ))
@@ -287,7 +286,7 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
                 onSelect={() => onTabSelect(tab.id)}
                 isSelected={currentTab ? currentTab.id === tab.id : false}
                 isPinned={false}
-                onPin={() => onTabPin(tab.id)}
+                onContextMenuOpen={(e) => onTabContextMenu(e, tab)}
                 render={tab.shouldRender}
               />
             ))

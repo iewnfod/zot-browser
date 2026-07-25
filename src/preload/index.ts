@@ -22,6 +22,18 @@ const api = {
   viewStop: (tabId: string) => ipcRenderer.invoke('view-stop', tabId),
   viewSetMuted: (tabId: string, muted: boolean) =>
     ipcRenderer.invoke('view-set-muted', tabId, muted),
+  // 编辑操作（网页右键菜单触发）
+  viewCut: (tabId: string) => ipcRenderer.invoke('view-cut', tabId),
+  viewCopy: (tabId: string) => ipcRenderer.invoke('view-copy', tabId),
+  viewPaste: (tabId: string) => ipcRenderer.invoke('view-paste', tabId),
+  viewDelete: (tabId: string) => ipcRenderer.invoke('view-delete', tabId),
+  viewSelectAll: (tabId: string) => ipcRenderer.invoke('view-select-all', tabId),
+  viewUndo: (tabId: string) => ipcRenderer.invoke('view-undo', tabId),
+  viewRedo: (tabId: string) => ipcRenderer.invoke('view-redo', tabId),
+  // 开发者
+  viewInspect: (tabId: string, x: number, y: number) => ipcRenderer.invoke('view-inspect', tabId, x, y),
+  viewOpenDevTools: (tabId: string) => ipcRenderer.invoke('view-open-devtools', tabId),
+  viewViewSource: (tabId: string) => ipcRenderer.invoke('view-view-source', tabId),
   viewSetUserAgent: (ua: string) => ipcRenderer.invoke('view-set-user-agent', ua),
   setCurrentTab: (tabId: string | null) => ipcRenderer.invoke('set-current-tab', tabId),
   setPageRect: (rect: { x: number; y: number; width: number; height: number }) =>
