@@ -139,8 +139,8 @@ export default function WebViewContainer({
 
       <div
         className={`
-          w-full ${showWindowButtons ? 'h-10' : 'h-2'} transition-all duration-300 ease-in-out
-          flex flex-row justify-center items-center bg-(--bg-color)
+          relative z-50 w-full ${showWindowButtons ? 'h-10' : 'h-2'} transition-all duration-300 ease-in-out
+          flex flex-row justify-center items-center
         `}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
@@ -185,34 +185,28 @@ export default function WebViewContainer({
         }
       </div>
 
-      <div className="w-full h-full grow flex flex-row pl-0 pt-0 bg-transparent">
-        <div className="w-full h-full grow flex flex-col">
-          {/* 整个内容区域透明，让下层网页 view 显示出来。
-              cursor 样式根据网页光标类型同步，让悬停链接/文本时光标正确变化。 */}
-          <div
-            ref={pageAreaRef}
-            className="relative w-full h-full bg-transparent"
-            style={{ cursor: cursorCSS }}
-          >
-            <Card className="w-full h-full overflow-hidden bg-transparent">
-              {children}
-            </Card>
-            {/* 悬停链接状态条（左下角，类似浏览器状态栏） */}
-            {hoverURL && (
-              <div
-                className="absolute bottom-1 left-1 max-w-[60%] z-50 pointer-events-none select-none"
-              >
-                <div className="px-2 py-0.5 rounded-small bg-black/75 text-white text-xs truncate">
-                  {hoverURL}
-                </div>
+      {/* 内容区域：左/右/下各留 8px(=画框边宽)，顶部贴顶栏(画框顶边=顶栏高度)。
+          整块透明，让下层网页 view 显示出来；cursor 样式按网页光标类型同步。 */}
+      <div className="w-full h-full grow flex flex-row pr-2 pb-2 pt-0 bg-transparent">
+        <div
+          ref={pageAreaRef}
+          className="relative w-full h-full bg-transparent"
+          style={{ cursor: cursorCSS }}
+        >
+          <Card className="w-full h-full overflow-hidden bg-transparent">
+            {children}
+          </Card>
+          {/* 悬停链接状态条（左下角，类似浏览器状态栏） */}
+          {hoverURL && (
+            <div
+              className="absolute bottom-1 left-1 max-w-[60%] z-50 pointer-events-none select-none"
+            >
+              <div className="px-2 py-0.5 rounded-small bg-black/75 text-white text-xs truncate">
+                {hoverURL}
               </div>
-            )}
-          </div>
-          {/* 底部占位背景 */}
-          <div className="bg-(--bg-color) h-2 w-full"/>
+            </div>
+          )}
         </div>
-        {/* 右侧占位背景 */}
-        <div className="bg-(--bg-color) w-2 h-full"/>
       </div>
     </div>
   );

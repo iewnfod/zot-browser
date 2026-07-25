@@ -3,6 +3,7 @@ import { debounce } from '@renderer/lib/utils';
 import BrowserSideBar from '@renderer/components/SideBar';
 import useNewTabModal from '@renderer/components/modals/NewTabModal';
 import WebViewContainer from '@renderer/components/WebViewContainer';
+import FrameOverlay from '@renderer/components/FrameOverlay';
 import { LoadMenuEvents, UnLoadMenuEvents } from '@renderer/lib/menu';
 import { getDefaultSettings, Settings } from '@renderer/lib/settings';
 import ResizeSidebarDivider from '@renderer/components/ResizeSidebarDivider';
@@ -454,9 +455,11 @@ function App() {
 
   // render
   return (
-    <div className="flex flex-col w-screen h-screen">
+    <div className="relative flex flex-col w-screen h-screen">
+      {/* 全局背景画框：白色 + 卡片洞口 + inner shadow，作为整个 UI 的统一背景层 */}
+      <FrameOverlay pageAreaRef={pageAreaRef} />
       {/* 主 UI 容器 */}
-      <div className={`flex flex-row w-fulls h-full grow gap-0`}>
+      <div className={`relative z-10 flex flex-row w-fulls h-full grow gap-0`}>
         <BrowserSideBar
           showSideBar={settings.showSideBar}
           currentTab={currentTab}
