@@ -1,7 +1,8 @@
 import { isMac } from '@react-aria/utils';
 import { Button, Card } from '@heroui/react';
-import { LuMaximize, LuMinimize, LuMinus, LuX } from 'react-icons/lu';
+import { LuGlobe, LuMaximize, LuMinimize, LuMinus, LuX } from 'react-icons/lu';
 import { ReactNode, RefObject, useEffect, useMemo, useRef, useState } from 'react';
+import { Tab } from '@renderer/lib/tab';
 
 /**
  * Electron cursor-changed 的 type 字符串 → CSS cursor 值。
@@ -37,7 +38,8 @@ export default function WebViewContainer({
   pageAreaRef,
   naturalScroll = false,
   cursorType = 'default',
-  hoverURL = ''
+  hoverURL = '',
+  currentTab = null
 } : {
   children?: ReactNode;
   hide?: boolean;
@@ -48,6 +50,8 @@ export default function WebViewContainer({
   cursorType?: string;
   /** 悬停链接目标 URL，空串表示未悬停 */
   hoverURL?: string;
+  /** 当前标签，用于判断是否需要展示空白占位页 */
+  currentTab?: Tab | null;
 }) {
   const [showWindowButtons, setShowWindowButtons] = useState<boolean>(false);
   const [isMaximized, setIsMaximized] = useState<boolean>(false);
@@ -55,6 +59,13 @@ export default function WebViewContainer({
 
   // 网页光标类型 → CSS。非网页区域（如 loading 默认）用 default。
   const cursorCSS = useMemo(() => electronCursorToCSS(cursorType), [cursorType]);
+
+  // 内容区域是否为空：无标签，或标签地址为空/about:blank。此时底层网页 view 没有可见内容，
+  // 需要在此叠一层占位页（而不是让卡片洞口完全透明）。
+  const isEmpty = useMemo(() => {
+    const url = currentTab?.url;
+    return !currentTab || !url || url.trim() === '' || url === 'about:blank';
+  }, [currentTab]);
 
   const closeTimeoutRef = useRef<NodeJS.Timeout>(null);
 
@@ -196,6 +207,16 @@ export default function WebViewContainer({
           <Card className="w-full h-full overflow-hidden bg-transparent">
             {children}
           </Card>
+          {/* 空白占位页：无标签 / about:blank 时叠在透明卡片洞口上，
+              pointer-events-none 避免拦截拖拽与输入转发。
+              rounded-medium(=12) 与 FrameOverlay 的洞口圆角对齐，避免直角白块
+              盖住画框边缘的圆角与 inner shadow。 */}
+          {isEmpty && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 select-none pointer-events-none bg-white rounded-medium overflow-hidden">
+              <LuGlobe size={48} className="text-default-300" strokeWidth={1.5} />
+              <p className="text-sm text-default-400">Open a tab to start browsing</p>
+            </div>
+          )}
           {/* 悬停链接状态条（左下角，类似浏览器状态栏） */}
           {hoverURL && (
             <div

@@ -509,6 +509,7 @@ function App() {
           naturalScroll={settings.naturalScroll}
           cursorType={webUI.cursorType}
           hoverURL={webUI.hoverURL}
+          currentTab={currentTab}
         />
       </div>
 
