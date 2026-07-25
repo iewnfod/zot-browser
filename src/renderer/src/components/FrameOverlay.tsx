@@ -27,6 +27,10 @@ export default function FrameOverlay({
   // 外框外扩量：让 path 外缘远超 SVG root（root 默认会裁剪可视区外），
   // 这样 inner-shadow 在外缘的部分落在可视区外被裁掉，只剩洞口轮廓的阴影。
   const FRAME_OUTSET = 2000;
+  // 消缝：洞口左边缘向内收 1px，让画框多覆盖 1px。
+  // FrameOverlay 的测量矩形与底层网页 view 的整数像素边界之间，因亚像素取整会
+  // 时有时无地错开 <1px，露出一条透明缝。让 SVG 内圈左侧多压 1px 即可盖住。
+  const SEAM_FIX = 1;
 
   /**
    * 生成"带洞的画框"path：外圈=远超画布的大矩形、内圈=圆角矩形洞，用 even-odd 填充规则得到带洞形状。
@@ -34,8 +38,11 @@ export default function FrameOverlay({
    */
   const framePath = useMemo(() => {
     const { w: W, h: H } = svgSize;
-    const { x, y, w, h } = hole;
-    if (W === 0 || H === 0 || w === 0 || h === 0) return '';
+    const { x: hx, y, w: hw, h } = hole;
+    if (W === 0 || H === 0 || hw === 0 || h === 0) return '';
+    // 左边缘向内收 SEAM_FIX：x 右移、w 减小，画框在左侧多覆盖 1px
+    const x = hx + SEAM_FIX;
+    const w = hw - SEAM_FIX;
     const r = Math.max(0, Math.min(HOLE_RADIUS, w / 2, h / 2));
     // 外框：远超可视区，其内阴影落在 root 外被裁掉
     const outer =

@@ -5,7 +5,7 @@ import useNewTabModal from '@renderer/components/modals/NewTabModal';
 import WebViewContainer from '@renderer/components/WebViewContainer';
 import FrameOverlay from '@renderer/components/FrameOverlay';
 import { LoadMenuEvents, UnLoadMenuEvents } from '@renderer/lib/menu';
-import { getDefaultSettings, Settings } from '@renderer/lib/settings';
+import { getDefaultSettings, resolveUISize, Settings } from '@renderer/lib/settings';
 import ResizeSidebarDivider from '@renderer/components/ResizeSidebarDivider';
 import InSecureHttpsCertificateModal from '@renderer/components/modals/InSecureHttpsCertificateModal';
 import useEditTabModal from '@renderer/components/modals/EditTabModal';
@@ -176,8 +176,8 @@ function App() {
 
 
   // modals
-  const [openEditTabModal, setEditTabModalContent, EditTabModal] = useEditTabModal(handleEditCurrentTab);
-  const [openNewTabModal, NewTabModal] = useNewTabModal(createTab);
+  const [openEditTabModal, setEditTabModalContent, EditTabModal] = useEditTabModal(handleEditCurrentTab, undefined, resolveUISize(settings));
+  const [openNewTabModal, NewTabModal] = useNewTabModal(createTab, resolveUISize(settings));
 
   function handleOpenEditTabModal(content: string) {
     setEditTabModalContent(content);
@@ -490,6 +490,7 @@ function App() {
           showFullUrl={settings.showFullUrl}
           openSettings={() => createTab('zot://settings')}
           openExtensions={() => createTab('zot://extensions')}
+          uiSize={resolveUISize(settings)}
           className="p-2 pr-0"
         />
 

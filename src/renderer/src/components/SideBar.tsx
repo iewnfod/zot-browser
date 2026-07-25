@@ -25,6 +25,7 @@ import TabRow from '@renderer/components/TabRow';
 import { isMac } from '@react-aria/utils';
 import { useMemo, useRef } from 'react';
 import { Space } from '@renderer/lib/space';
+import { getUISizePrefs, UISize } from '@renderer/lib/settings';
 
 export interface BrowserSideBarProps {
   showSideBar: boolean;
@@ -48,6 +49,8 @@ export interface BrowserSideBarProps {
   openSettings: () => void;
   /** 打开 zot://extensions 内部页 */
   openExtensions: () => void;
+  /** UI 尺寸档位（sm/md/lg），驱动整个 sidebar 的控件/图标/文字大小 */
+  uiSize?: UISize;
 }
 
 interface BrowserSideBarContentProps extends BrowserSideBarProps {}
@@ -72,7 +75,11 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
     showFullUrl,
     openSettings,
     openExtensions,
+    uiSize,
   } = props;
+
+  // sidebar 全部元素的尺寸：档位 → (Button size, 图标像素, Space 行图标/文字, ...)
+  const { button: iconBtnSize, icon: iconPx, spaceIcon: spaceIconPx, text: spaceTextClass } = getUISizePrefs(uiSize);
 
   function handleGoBack() {
     if (currentTab) {
@@ -135,15 +142,15 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
           }}>
             <Dropdown>
               <DropdownTrigger>
-                <Button variant="light" isIconOnly size="sm">
-                  <LuMenu size={20}/>
+                <Button variant="light" isIconOnly size={iconBtnSize}>
+                  <LuMenu size={iconPx}/>
                 </Button>
               </DropdownTrigger>
               <DropdownMenu aria-label="More">
                 <DropdownItem
                   key="settings"
                   textValue="Settings"
-                  startContent={<LuSettings size={15}/>}
+                  startContent={<LuSettings size={iconPx}/>}
                   onPress={openSettings}
                 >
                   Settings
@@ -151,7 +158,7 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
                 <DropdownItem
                   key="extensions"
                   textValue="Extensions"
-                  startContent={<LuPuzzle size={15}/>}
+                  startContent={<LuPuzzle size={iconPx}/>}
                   onPress={openExtensions}
                 >
                   Extensions
@@ -162,14 +169,14 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
             {
               showSideBar ? (
                 <Tooltip size="sm" content="Hide Sidebar">
-                  <Button variant="light" isIconOnly size="sm" onPress={() => setSiteBarState(false)}>
-                    <LuPanelLeftClose size={20}/>
+                  <Button variant="light" isIconOnly size={iconBtnSize} onPress={() => setSiteBarState(false)}>
+                    <LuPanelLeftClose size={iconPx}/>
                   </Button>
                 </Tooltip>
               ) : (
                 <Tooltip size="sm" content="Show Sidebar">
-                  <Button variant="light" isIconOnly size="sm" onPress={() => setSiteBarState(true)}>
-                    <LuPanelLeftOpen size={20}/>
+                  <Button variant="light" isIconOnly size={iconBtnSize} onPress={() => setSiteBarState(true)}>
+                    <LuPanelLeftOpen size={iconPx}/>
                   </Button>
                 </Tooltip>
               )
@@ -180,16 +187,16 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
             // @ts-expect-error electron attribute
             appRegion: 'no-drag',
           }}>
-            <Button variant="light" isIconOnly size="sm" isDisabled={!canGoBack()} onPress={handleGoBack}>
-              <LuMoveLeft size={20}/>
+            <Button variant="light" isIconOnly size={iconBtnSize} isDisabled={!canGoBack()} onPress={handleGoBack}>
+              <LuMoveLeft size={iconPx}/>
             </Button>
 
-            <Button variant="light" isIconOnly size="sm" isDisabled={!canGoForward()} onPress={handleGoForward}>
-              <LuMoveRight size={20}/>
+            <Button variant="light" isIconOnly size={iconBtnSize} isDisabled={!canGoForward()} onPress={handleGoForward}>
+              <LuMoveRight size={iconPx}/>
             </Button>
 
-            <Button variant="light" isIconOnly size="sm" onPress={handleReload}>
-              <LuRotateCw size={20}/>
+            <Button variant="light" isIconOnly size={iconBtnSize} onPress={handleReload}>
+              <LuRotateCw size={iconPx}/>
             </Button>
 
             {/* Plugins */}
@@ -199,7 +206,7 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
         {/* URL Input */}
         <Input
           value={displayUrl}
-          size="sm"
+          size={iconBtnSize}
           className="pl-1 group overflow-hidden"
           placeholder="Search..."
           classNames={{
@@ -211,11 +218,11 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
               transition-all ease-in-out duration-300
               translate-x-2 backdrop-blur-md rounded-medium
             ">
-              <Button isIconOnly size="sm" variant="light" className="bg-transparent">
-                <LuLink size={14} className="text-neutral-700"/>
+              <Button isIconOnly size={iconBtnSize} variant="light" className="bg-transparent">
+                <LuLink size={iconPx} className="text-neutral-700"/>
               </Button>
-              <Button isIconOnly size="sm" variant="light">
-                <LuSlidersHorizontal size={14} className="text-neutral-700"/>
+              <Button isIconOnly size={iconBtnSize} variant="light">
+                <LuSlidersHorizontal size={iconPx} className="text-neutral-700"/>
               </Button>
             </div>
           }
@@ -239,8 +246,8 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
 
         {/* Space Info */}
         <div className="flex flex-row w-full gap-2 pl-3 pr-1 items-center justify-start">
-          <img src={currentSpace ? currentSpace.icon : ""} alt="" className="w-4 select-none" draggable={false}/>
-          <p className="select-none text-sm font-semibold whitespace-nowrap text-ellipsis">{currentSpace ? currentSpace.name : ""}</p>
+          <img src={currentSpace ? currentSpace.icon : ""} alt="" className="select-none" style={{ width: spaceIconPx, height: spaceIconPx }} draggable={false}/>
+          <p className={`select-none font-semibold whitespace-nowrap text-ellipsis ${spaceTextClass}`}>{currentSpace ? currentSpace.name : ""}</p>
         </div>
 
         {/* Pinned Tabs (in list) */}
@@ -256,6 +263,7 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
                 isPinned={true}
                 onContextMenuOpen={(e) => onTabContextMenu(e, tab)}
                 render={tab.shouldRender}
+                uiSize={uiSize}
               />
             ))
           }
@@ -266,10 +274,10 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
         {/* New Tab */}
         <div className="w-full">
           <Button
-            startContent={<LuPlus size={16}/>}
+            startContent={<LuPlus size={iconPx}/>}
             variant="light"
             className="w-full"
-            size="sm"
+            size={iconBtnSize}
             onPress={() => openNewTabModal()}
           >
             <p className="text-start w-full">
@@ -291,6 +299,7 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
                 isPinned={false}
                 onContextMenuOpen={(e) => onTabContextMenu(e, tab)}
                 render={tab.shouldRender}
+                uiSize={uiSize}
               />
             ))
           }
@@ -305,8 +314,8 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
         <div className="w-full flex flex-row justify-between items-center">
           <Dropdown>
             <DropdownTrigger>
-              <Button variant="light" isIconOnly size="sm">
-                <LuDownload size={20}/>
+              <Button variant="light" isIconOnly size={iconBtnSize}>
+                <LuDownload size={iconPx}/>
               </Button>
             </DropdownTrigger>
             <DropdownMenu>
@@ -318,7 +327,7 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
             {
               spaces.map((space) => (
                 <Tooltip key={space.id} content={space.name} size="sm">
-                  <Button isIconOnly variant={currentSpace?.id === space.id ? "flat" : "light"} size="sm">
+                  <Button isIconOnly variant={currentSpace?.id === space.id ? "flat" : "light"} size={iconBtnSize}>
                     <img
                       alt=""
                       src={space.icon}
@@ -331,8 +340,8 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
           </div>
 
           <Tooltip size="sm" content="New Space">
-            <Button variant="light" isIconOnly size="sm">
-              <LuPlus size={20}/>
+            <Button variant="light" isIconOnly size={iconBtnSize}>
+              <LuPlus size={iconPx}/>
             </Button>
           </Tooltip>
         </div>

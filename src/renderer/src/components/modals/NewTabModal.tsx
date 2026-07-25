@@ -3,18 +3,22 @@ import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { LuSearch } from 'react-icons/lu';
 import { debounce, normalizeUrl } from '@renderer/lib/utils';
 import { SearchOption } from '@renderer/lib/search';
+import { getUISizePrefs, UISize } from '@renderer/lib/settings';
 
 export function NewTabModalContent({
   onNewTab,
   isOpen,
   onOpenChange,
-  inputContent
+  inputContent,
+  uiSize
 } : {
   onNewTab: (url: string) => void;
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   inputContent?: string;
+  uiSize?: UISize;
 }) {
+  const { icon: iconPx, modalInput, modalTitle, modalDesc } = getUISizePrefs(uiSize);
   const [input, setInput] = useState<string>(inputContent || "");
   const [options, _setOptions] = useState<SearchOption[]>([]);
   const [selectOptionIndex, setSelectOptionIndex] = useState(-1);
@@ -144,11 +148,11 @@ export function NewTabModalContent({
           <div className="flex flex-col justify-center items-center">
             <Input
               ref={inputRef}
-              size="lg"
+              size={modalInput}
               onValueChange={setInput}
               value={input}
               placeholder="Search..."
-              startContent={<LuSearch className="mr-1"/>}
+              startContent={<LuSearch size={iconPx} className="mr-1"/>}
               onKeyDown={(e) => handleKeyDown(e, onClose)}
               classNames={{
                 innerWrapper: "bg-transparent",
@@ -179,8 +183,8 @@ export function NewTabModalContent({
                           src={option.icon}
                         />
                         <div className="flex flex-col">
-                          <p className="text-md">{option.title}</p>
-                          <p className="text-small text-default-500">{option.description}</p>
+                          <p className={modalTitle}>{option.title}</p>
+                          <p className={`${modalDesc} text-default-500`}>{option.description}</p>
                         </div>
                       </CardBody>
                     </Card>
@@ -195,7 +199,10 @@ export function NewTabModalContent({
   );
 }
 
-export default function useNewTabModal(onNewTab: (url: string) => void): [() => void, ReactNode] {
+export default function useNewTabModal(
+  onNewTab: (url: string) => void,
+  uiSize?: UISize
+): [() => void, ReactNode] {
   const {isOpen, onOpen, onOpenChange} = useDisclosure();
 
   return [
@@ -204,6 +211,7 @@ export default function useNewTabModal(onNewTab: (url: string) => void): [() => 
       onNewTab={onNewTab}
       isOpen={isOpen}
       onOpenChange={onOpenChange}
+      uiSize={uiSize}
     />
   ];
 }

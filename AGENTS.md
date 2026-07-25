@@ -250,10 +250,13 @@ Settings {
   clearTabInterval?: number;   // 默认 5*60*1000
   showFullUrl?: boolean;
   naturalScroll?: boolean;     // 首次运行未设置时读系统偏好（macOS）
+  uiSize?: UISize;             // 'sm' | 'md' | 'lg'，全 UI 三套尺寸（见 6.4）
 }
 ```
 
-同样 debounce 保存。`naturalScroll` 首次启动会调用 `get-natural-scroll` 探测系统设置。
+同样 debounce 保存。`naturalScroll` 首次启动会调用 `get-natural-scroll` 探测系统设置。`uiSize` 见 6.4 节。
+
+> **迁移兼容**：历史版本字段名为 `iconSize`，已重命名为 `uiSize`（语义不再局限于图标）。读取时统一用 `resolveUISize(settings)`——它会在 `uiSize` 缺失时回退读老的 `iconSize`，避免老用户的设置丢失。写入一律用 `uiSize`。
 
 ### 5.3 证书白名单
 
@@ -292,6 +295,77 @@ Settings {
 
 两种形态：常驻（`showSideBar=true`）或折叠 Drawer（左侧 2px 触发区，hover 300ms 延迟开关）。顶部按钮区按 macOS/其它平台区分窗口控制按钮位置（`isMac()`）。`appRegion: 'drag'` / `'no-drag'` 通过内联 style 控制（`-webkit-app-region` 的 TS 别名），让顶栏可拖拽窗口、按钮可点击。
 
+侧栏内**所有可见元素**（图标按钮、地址栏、New Tab 按钮、标签行 TabRow、Space 标题行的图标与文字）都接入「三套尺寸」体系（见 6.4），无一例外。
+
+### 6.4 ★ 三套尺寸体系（`uiSize`，全 UI 强制约定）
+
+**这是全 UI 的硬性约定：任何新增的、面向用户的尺寸都要提供 sm / md / lg 三档，跟随 `settings.uiSize`。** 不要再写死 `size="sm"` / `size={20}` 这类固定值——必须从映射表取。
+
+> 字段原名 `iconSize`，因作用范围早已超出图标（含文字、控件、弹窗），已重命名为 `uiSize`。读取用 `resolveUISize()` 以兼容老数据。
+
+#### 6.4.1 数据来源
+
+`src/renderer/src/lib/settings.ts`：
+
+```ts
+type UISize = 'sm' | 'md' | 'lg';
+const DEFAULT_UI_SIZE: UISize = 'md';
+
+const UI_SIZE_MAP: Record<UISize, {
+  button: 'sm'|'md'|'lg';     // HeroUI Button 的 size
+  icon: number;               // 工具栏图标像素
+  spaceIcon: number;          // Space 标题行图标像素（略小）
+  text: string;               // Space 标题行文字 Tailwind 类
+  modalInput: 'sm'|'md'|'lg'; // NewTabModal 搜索框 Input 的 size
+  modalTitle: string;         // 弹窗候选项标题 Tailwind 类
+  modalDesc: string;          // 弹窗候选项描述 Tailwind 类
+}>;
+
+function getUISizePrefs(size?: UISize);        // 统一取值入口（不传则用 md）
+function resolveUISize(settings?): UISize;     // 读 uiSize，缺失时回退老 iconSize，再缺失用 md
+```
+
+**新增 UI 尺寸时：先在 `UI_SIZE_MAP` 加一个字段（三档取值），再在组件里用 `getUISizePrefs(uiSize)` 取。** 不要在组件里自己写 if/else 判档位。
+
+当前取值（改档位只需改这一张表）：
+
+| 字段 | sm | md（默认） | lg |
+|------|----|----|----|
+| `button` | sm | md | lg |
+| `icon` | 18 | 20 | 24 |
+| `spaceIcon` | 14 | 16 | 20 |
+| `text` | text-xs | text-sm | text-base |
+| `modalInput` | md | lg | lg |
+| `modalTitle` | text-md | text-lg | text-xl |
+| `modalDesc` | text-small | text-md | text-lg |
+
+> 注意 HeroUI 的 `Input` / `Button` size 最大只到 `lg`，达到后封顶（如 `modalInput` 在 md、lg 都用 lg）。像素类字段（icon / spaceIcon）不受此限。
+
+#### 6.4.2 数据流
+
+```
+store('settings.uiSize')            // 写入用 uiSize；读取经 resolveUISize() 兼容老 iconSize
+  → App.tsx 读 resolveUISize(settings)
+    → SideBar  prop uiSize          （内部 getUISizePrefs → iconBtnSize/iconPx/spaceIconPx/spaceTextClass）
+    → TabRow  prop uiSize           （ButtonGroup/关闭按钮/占位图标）
+    → useNewTabModal(uiSize) / useEditTabModal(uiSize)
+      → NewTabModalContent prop uiSize（Input/LuSearch/候选项文字）
+```
+
+设置页 `zot://settings` 改 UI size → `store.set('settings')` → 主进程广播 `settings-changed`（见 2.4 / 4.1）→ `App.tsx` `setSettings` → 上述所有组件重渲染即时生效。
+
+#### 6.4.3 作用范围 / 例外
+
+- **接入**：SideBar 全部（顶/底图标按钮、地址栏 Input 及其 endContent 小按钮、New Tab 按钮、TabRow、Space 标题行）、NewTabModal / EditTabModal。
+- **不接入（刻意）**：
+  - `Tooltip size="sm"` —— 那是气泡提示的渲染尺寸，独立于控件尺寸，不属于「面向用户的控件尺寸」。
+  - `WebViewContainer` 顶栏的窗口控制按钮（最小化/最大化/关闭）—— 窗口装饰，与工具栏图标无关。
+  - `InSecureHttpsCertificateModal` —— 低频安全对话框，保持固定大小。
+  - 空白占位页（`WebViewContainer` 的 `isEmpty` 层）的提示图标 —— 静态占位，非交互控件。
+- **判断准则**：只要它是「用户能交互的、属于常规 UI 的」控件/图标/文字，就接；纯装饰或一次性系统对话框可不接。拿不准就接（三档表成本极低）。
+
+---
+
 ---
 
 ## 7. 关键约束 / 易踩坑
@@ -307,6 +381,7 @@ Settings {
 9. **`useViews` 的事件订阅 effect 只挂载一次**（依赖是回调引用）。改回调时注意闭包陷阱；回调内部尽量用 `updateTab(tabId, {...})` 这种带 id 的纯函数，不要依赖外部 state 快照。
 10. **瞬态状态不要放进 `Tab`**：光标、悬停链接、网页右键等高频 / 非持久状态走 `useWebUIState`；放进 Tab 会触发 debounced 序列化（无谓写盘 + 状态抖动）。
 11. **macOS 红绿灯按钮**：`titleBarStyle:'hidden'` + `trafficLightPosition:{x:17,y:17}`，sidebar 顶部按钮区用 `pl-20` 给红绿灯留位。
+12. **★ 面向用户的新 UI 尺寸必须三档化**：不要再写死 `size="sm"` / `size={20}`。在 `lib/settings.ts` 的 `UI_SIZE_MAP` 加一个三档字段，组件里用 `getUISizePrefs(uiSize)` 取值，跟随 `settings.uiSize`（读取用 `resolveUISize()`）。详见 6.4。例外：`Tooltip size`、窗口控制按钮、`InSecureHttpsCertificateModal`、空白占位页图标。
 
 ---
 

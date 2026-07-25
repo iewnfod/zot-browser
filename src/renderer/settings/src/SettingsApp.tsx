@@ -1,6 +1,6 @@
-import { Card, CardBody, Divider, Input, Switch } from '@heroui/react';
+import { Card, CardBody, Divider, Input, Select, SelectItem, Switch } from '@heroui/react';
 import { useEffect, useState } from 'react';
-import { getDefaultSettings, Settings } from '@renderer/lib/settings';
+import { getDefaultSettings, resolveUISize, Settings, UISize } from '@renderer/lib/settings';
 
 /**
  * zot://settings 设置页。
@@ -139,6 +139,26 @@ export default function SettingsApp() {
                 onBlur={commitSidebarWidth}
                 onKeyDown={(e) => { if (e.key === 'Enter') commitSidebarWidth(); }}
               />
+            </Row>
+            <Row
+              title="UI size"
+              description="Scale of controls, icons, and text across the sidebar and dialogs."
+            >
+              <Select
+                aria-label="UI size"
+                className="max-w-[140px]"
+                size="sm"
+                selectedKeys={[resolveUISize(settings)]}
+                disallowEmptySelection
+                onSelectionChange={(keys) => {
+                  const v = Array.from(keys)[0] as UISize;
+                  if (v) commit({ uiSize: v });
+                }}
+              >
+                <SelectItem key="sm">Small</SelectItem>
+                <SelectItem key="md">Medium</SelectItem>
+                <SelectItem key="lg">Large</SelectItem>
+              </Select>
             </Row>
           </CardBody>
         </Card>
