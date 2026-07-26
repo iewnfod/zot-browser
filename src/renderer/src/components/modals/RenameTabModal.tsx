@@ -1,6 +1,7 @@
 import { Button, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader } from '@heroui/react';
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import { getUISizePrefs, UISize } from '@renderer/lib/settings';
+import type { TFunction } from '@renderer/lib/i18n';
 
 /**
  * 重命名标签页弹窗。
@@ -15,13 +16,15 @@ export function RenameTabModalContent({
   onOpenChange,
   initialValue,
   onConfirm,
-  uiSize
+  uiSize,
+  t
 }: {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   initialValue?: string;
   onConfirm: (name: string) => void;
   uiSize?: UISize;
+  t: TFunction;
 }) {
   const { button: btnSize, modalInput } = getUISizePrefs(uiSize);
   const [value, setValue] = useState<string>(initialValue || '');
@@ -63,14 +66,14 @@ export function RenameTabModalContent({
       <ModalContent>
         {(onClose) => (
           <>
-            <ModalHeader className="flex flex-col gap-1">Rename Tab</ModalHeader>
+            <ModalHeader className="flex flex-col gap-1">{t('modal.rename.title')}</ModalHeader>
             <ModalBody>
               <Input
                 ref={inputRef}
                 size={modalInput}
                 value={value}
                 onValueChange={setValue}
-                placeholder="Enter a custom name (leave empty to reset)"
+                placeholder={t('modal.rename.placeholder')}
                 onKeyDown={(e) => handleKeyDown(e, onClose)}
                 classNames={{
                   innerWrapper: 'bg-transparent'
@@ -79,10 +82,10 @@ export function RenameTabModalContent({
             </ModalBody>
             <ModalFooter>
               <Button size={btnSize} variant="light" onPress={onClose}>
-                Cancel
+                {t('modal.rename.cancel')}
               </Button>
               <Button size={btnSize} color="primary" onPress={() => handleSubmit(onClose)}>
-                Save
+                {t('modal.rename.save')}
               </Button>
             </ModalFooter>
           </>
@@ -98,13 +101,17 @@ export function RenameTabModalContent({
  */
 export default function useRenameTabModal(
   onConfirm: (name: string) => void,
-  uiSize?: UISize
+  uiSize?: UISize,
+  t?: TFunction
 ): [() => void, (value: string) => void, ReactNode] {
   const [isOpen, setIsOpen] = useState(false);
   const [initialValue, setInitialValue] = useState<string>('');
 
   const open = (): void => setIsOpen(true);
   const onOpenChange = (next: boolean): void => setIsOpen(next);
+
+  // t 由 App 提供；理论上不会缺失，这里给个回退避免类型为可选时的运行时报错
+  const tfn: TFunction = t ?? ((k) => k as never);
 
   return [
     open,
@@ -115,6 +122,7 @@ export default function useRenameTabModal(
       initialValue={initialValue}
       onConfirm={onConfirm}
       uiSize={uiSize}
+      t={tfn}
     />
   ];
 }

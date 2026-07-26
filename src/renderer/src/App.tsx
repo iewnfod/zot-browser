@@ -6,6 +6,8 @@ import WebViewContainer from '@renderer/components/WebViewContainer';
 import FrameOverlay from '@renderer/components/FrameOverlay';
 import { LoadMenuEvents, UnLoadMenuEvents } from '@renderer/lib/menu';
 import { getDefaultSettings, resolveUISize, Settings } from '@renderer/lib/settings';
+import { useT } from '@renderer/lib/useT';
+import { DEFAULT_LOCALE, resolveLocale, type Locale } from '@renderer/lib/i18n';
 import ResizeSidebarDivider from '@renderer/components/ResizeSidebarDivider';
 import InSecureHttpsCertificateModal from '@renderer/components/modals/InSecureHttpsCertificateModal';
 import useEditTabModal from '@renderer/components/modals/EditTabModal';
@@ -89,8 +91,12 @@ function App() {
   // settings
   const [settings, setSettings] = useState<Settings>(getDefaultSettings());
   const [isSettingsInitialized, setIsSettingsInitialized] = useState<boolean>(false);
+  // 系统语言（用于 settings.locale 为 undefined「跟随系统」时的回退）
+  const [systemLocale, setSystemLocale] = useState<Locale>(DEFAULT_LOCALE);
 
   function loadSettingsData() {
+    // 探测系统语言（与 naturalScroll 一致：无论 settings 是否存在都读取，保证「跟随系统」语义）
+    window.api.getSystemLocale().then((sys) => setSystemLocale(sys));
     window.store.get('settings').then((data) => {
       if (data) {
         console.log('Load Settings', data);
@@ -154,6 +160,18 @@ function App() {
     }
   }, [settings, isSettingsInitialized]);
 
+  // 当前生效语言：settings.locale 为 undefined 时跟随系统
+  const locale = useMemo(
+    () => resolveLocale(settings?.locale, systemLocale),
+    [settings?.locale, systemLocale]
+  );
+  const t = useT(locale);
+
+  // 窗口标题随语言切换（frameless 窗口下标题主要影响任务栏/系统显示）
+  useEffect(() => {
+    document.title = t('app.name');
+  }, [t]);
+
   const toggleSideBar = useCallback(() => {
     console.log('Try toggle sidebar, current state: ', settings.showSideBar);
     if (settings) {
@@ -177,8 +195,8 @@ function App() {
 
 
   // modals
-  const [openEditTabModal, setEditTabModalContent, EditTabModal] = useEditTabModal(handleEditCurrentTab, undefined, resolveUISize(settings));
-  const [openNewTabModal, NewTabModal] = useNewTabModal(createTab, resolveUISize(settings));
+  const [openEditTabModal, setEditTabModalContent, EditTabModal] = useEditTabModal(handleEditCurrentTab, undefined, resolveUISize(settings), t);
+  const [openNewTabModal, NewTabModal] = useNewTabModal(createTab, resolveUISize(settings), t);
 
   // 记录当前正在重命名的 tab id（通过 ref，避免 onConfirm 闭包读到旧值）。
   // 留空提交即清除自定义名称 → 恢复跟随网页标题。
@@ -191,7 +209,8 @@ function App() {
   }, [updateTab]);
   const [openRenameTabModal, setRenameInitialValue, RenameTabModal] = useRenameTabModal(
     handleRenameConfirm,
-    resolveUISize(settings)
+    resolveUISize(settings),
+    t
   );
 
   function handleOpenEditTabModal(content: string) {
@@ -333,47 +352,47 @@ function App() {
 
   // —— 标签右键菜单项（保持原有 固定/选择/关闭 三个动作，视觉规范化）——
   const tabContextMenuItems: ContextMenuItem[] = useMemo(() => {
-    const t = tabContextMenu?.tab;
-    if (!t) return [];
+    const tab = tabContextMenu?.tab;
+    if (!tab) return [];
     const items: ContextMenuItem[] = [];
     items.push({
       key: 'pin',
-      label: t.isPinned ? 'Unpin' : 'Pin',
+      label: tab.isPinned ? t('context.tab.unpin') : t('context.tab.pin'),
       startContent: <LuPin size={15} />,
-      onAction: () => (t.isPinned ? unpinTab(t.id) : pinTab(t.id))
+      onAction: () => (tab.isPinned ? unpinTab(tab.id) : pinTab(tab.id))
     });
     // 仅 pinned 标签允许重命名：设置 customName 后始终保持自定义名称，
     // 不再被网页 title 事件覆盖。已设置时菜单项显示为 Edit name。
-    if (t.isPinned) {
+    if (tab.isPinned) {
       items.push({
         key: 'rename',
-        label: t.customName ? 'Edit name' : 'Rename',
+        label: tab.customName ? t('context.tab.editName') : t('context.tab.rename'),
         startContent: <LuPencilLine size={15} />,
         onAction: () => {
-          renameTargetTabIdRef.current = t.id;
+          renameTargetTabIdRef.current = tab.id;
           // 初始值优先用已有的自定义名称，否则用网页标题
-          setRenameInitialValue(t.customName || t.name || '');
+          setRenameInitialValue(tab.customName || tab.name || '');
           openRenameTabModal();
         }
       });
     }
     items.push({
       key: 'select',
-      label: 'Select',
+      label: t('context.tab.select'),
       startContent: <LuSquareAsterisk size={15} />,
-      isDisabled: currentTab ? currentTab.id === t.id : false,
-      onAction: () => selectTab(t.id)
+      isDisabled: currentTab ? currentTab.id === tab.id : false,
+      onAction: () => selectTab(tab.id)
     });
     items.push({ key: 'div1', divider: true });
     items.push({
       key: 'close',
-      label: 'Close',
+      label: t('context.tab.close'),
       color: 'danger',
       startContent: <LuX size={15} />,
-      onAction: () => closeTab(t.id)
+      onAction: () => closeTab(tab.id)
     });
     return items;
-  }, [tabContextMenu, currentTab, pinTab, unpinTab, selectTab, closeTab, openRenameTabModal, setRenameInitialValue]);
+  }, [t, tabContextMenu, currentTab, pinTab, unpinTab, selectTab, closeTab, openRenameTabModal, setRenameInitialValue]);
 
   // —— 网页内右键菜单项（按上下文动态显隐）——
   const webContextMenuItems: ContextMenuItem[] = useMemo(() => {
@@ -381,27 +400,27 @@ function App() {
     if (!ctx) return [];
     const p = ctx.params;
     const tabId = ctx.tabId;
-    const tab = allTabs.find((t) => t.id === tabId);
+    const tab = allTabs.find((x) => x.id === tabId);
     const items: ContextMenuItem[] = [];
 
     // 导航组
     items.push({
       key: 'back',
-      label: 'Back',
+      label: t('context.web.back'),
       startContent: <LuArrowLeft size={15} />,
       isDisabled: !tab?.canGoBack,
       onAction: () => window.api.viewGoBack(tabId)
     });
     items.push({
       key: 'forward',
-      label: 'Forward',
+      label: t('context.web.forward'),
       startContent: <LuArrowRight size={15} />,
       isDisabled: !tab?.canGoForward,
       onAction: () => window.api.viewGoForward(tabId)
     });
     items.push({
       key: 'reload',
-      label: 'Reload',
+      label: t('context.web.reload'),
       startContent: <LuRotateCw size={15} />,
       onAction: () => window.api.viewReload(tabId)
     });
@@ -411,13 +430,13 @@ function App() {
     if (p.linkURL) {
       items.push({
         key: 'open-link',
-        label: 'Open link in new tab',
+        label: t('context.web.openLinkNewTab'),
         startContent: <LuLink2 size={15} />,
         onAction: () => createTab(p.linkURL)
       });
       items.push({
         key: 'copy-link',
-        label: 'Copy link address',
+        label: t('context.web.copyLink'),
         startContent: <LuCopy size={15} />,
         onAction: () => navigator.clipboard?.writeText(p.linkURL).catch(() => {})
       });
@@ -428,7 +447,7 @@ function App() {
     if (p.mediaType === 'image') {
       items.push({
         key: 'copy-image-addr',
-        label: 'Copy image address',
+        label: t('context.web.copyImage'),
         startContent: <LuImage size={15} />,
         onAction: () => navigator.clipboard?.writeText(p.srcURL).catch(() => {})
       });
@@ -442,7 +461,7 @@ function App() {
       if (p.isEditable) {
         items.push({
           key: 'cut',
-          label: 'Cut',
+          label: t('context.web.cut'),
           startContent: <LuScissors size={15} />,
           isDisabled: !ef?.canCut,
           onAction: () => window.api.viewCut(tabId)
@@ -450,7 +469,7 @@ function App() {
       }
       items.push({
         key: 'copy',
-        label: 'Copy',
+        label: t('context.web.copy'),
         startContent: <LuCopy size={15} />,
         isDisabled: !ef?.canCopy,
         onAction: () => window.api.viewCopy(tabId)
@@ -458,14 +477,14 @@ function App() {
       if (p.isEditable) {
         items.push({
           key: 'paste',
-          label: 'Paste',
+          label: t('context.web.paste'),
           startContent: <LuClipboard size={15} />,
           isDisabled: !ef?.canPaste,
           onAction: () => window.api.viewPaste(tabId)
         });
         items.push({
           key: 'delete',
-          label: 'Delete',
+          label: t('context.web.delete'),
           startContent: <LuTrash2 size={15} />,
           isDisabled: !ef?.canDelete,
           onAction: () => window.api.viewDelete(tabId)
@@ -473,7 +492,7 @@ function App() {
       }
       items.push({
         key: 'select-all',
-        label: 'Select all',
+        label: t('context.web.selectAll'),
         startContent: <LuType size={15} />,
         isDisabled: !ef?.canSelectAll,
         onAction: () => window.api.viewSelectAll(tabId)
@@ -484,19 +503,19 @@ function App() {
     // 开发者组
     items.push({
       key: 'view-source',
-      label: 'View page source',
+      label: t('context.web.viewSource'),
       startContent: <LuEye size={15} />,
       onAction: () => window.api.viewViewSource(tabId)
     });
     items.push({
       key: 'inspect',
-      label: 'Inspect',
+      label: t('context.web.inspect'),
       startContent: <LuEye size={15} />,
       onAction: () => window.api.viewInspect(tabId, ctx.x, ctx.y)
     });
 
     return items;
-  }, [webUI.contextMenu, allTabs, createTab]);
+  }, [t, webUI.contextMenu, allTabs, createTab]);
 
 
   // render
@@ -525,6 +544,7 @@ function App() {
           openSettings={() => createTab('zot://settings')}
           openExtensions={() => createTab('zot://extensions')}
           uiSize={resolveUISize(settings)}
+          t={t}
           className="p-2 pr-0"
         />
 
@@ -545,11 +565,12 @@ function App() {
           cursorType={webUI.cursorType}
           hoverURL={webUI.hoverURL}
           currentTab={currentTab}
+          t={t}
         />
       </div>
 
       {/* Modals — 直接在覆盖层显示，无需隐藏页面 */}
-      <InSecureHttpsCertificateModal/>
+      <InSecureHttpsCertificateModal t={t}/>
       {EditTabModal}
       {NewTabModal}
       {RenameTabModal}

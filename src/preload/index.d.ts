@@ -1,4 +1,5 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
+import type { Locale } from '../renderer/src/lib/i18n'
 
 declare global {
   interface Window {
@@ -38,6 +39,7 @@ declare global {
       setModalOpen: (open: boolean) => Promise<void>,
       forwardWheel: (event: { deltaX: number; deltaY: number; deltaMode: number; x: number; y: number }) => Promise<void>,
       getNaturalScroll: () => Promise<boolean>,
+      getSystemLocale: () => Promise<Locale>,
     },
     store: {
       get: (key: string) => Promise<any>,

@@ -26,6 +26,7 @@ import { isMac } from '@react-aria/utils';
 import { useMemo, useRef } from 'react';
 import { Space } from '@renderer/lib/space';
 import { getUISizePrefs, UISize } from '@renderer/lib/settings';
+import type { TFunction } from '@renderer/lib/i18n';
 
 export interface BrowserSideBarProps {
   showSideBar: boolean;
@@ -51,6 +52,8 @@ export interface BrowserSideBarProps {
   openExtensions: () => void;
   /** UI 尺寸档位（sm/md/lg），驱动整个 sidebar 的控件/图标/文字大小 */
   uiSize?: UISize;
+  /** 翻译函数（由上层根据当前 locale 提供） */
+  t: TFunction;
 }
 
 interface BrowserSideBarContentProps extends BrowserSideBarProps {}
@@ -76,6 +79,7 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
     openSettings,
     openExtensions,
     uiSize,
+    t,
   } = props;
 
   // sidebar 全部元素的尺寸：档位 → (Button size, 图标像素, Space 行图标/文字, ...)
@@ -146,35 +150,35 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
                   <LuMenu size={iconPx}/>
                 </Button>
               </DropdownTrigger>
-              <DropdownMenu aria-label="More">
+              <DropdownMenu aria-label={t('sidebar.more')}>
                 <DropdownItem
                   key="settings"
-                  textValue="Settings"
+                  textValue={t('sidebar.settings')}
                   startContent={<LuSettings size={iconPx}/>}
                   onPress={openSettings}
                 >
-                  Settings
+                  {t('sidebar.settings')}
                 </DropdownItem>
                 <DropdownItem
                   key="extensions"
-                  textValue="Extensions"
+                  textValue={t('sidebar.extensions')}
                   startContent={<LuPuzzle size={iconPx}/>}
                   onPress={openExtensions}
                 >
-                  Extensions
+                  {t('sidebar.extensions')}
                 </DropdownItem>
               </DropdownMenu>
             </Dropdown>
 
             {
               showSideBar ? (
-                <Tooltip size="sm" content="Hide Sidebar">
+                <Tooltip size="sm" content={t('sidebar.hideSidebar')}>
                   <Button variant="light" isIconOnly size={iconBtnSize} onPress={() => setSiteBarState(false)}>
                     <LuPanelLeftClose size={iconPx}/>
                   </Button>
                 </Tooltip>
               ) : (
-                <Tooltip size="sm" content="Show Sidebar">
+                <Tooltip size="sm" content={t('sidebar.showSidebar')}>
                   <Button variant="light" isIconOnly size={iconBtnSize} onPress={() => setSiteBarState(true)}>
                     <LuPanelLeftOpen size={iconPx}/>
                   </Button>
@@ -208,7 +212,7 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
           value={displayUrl}
           size={iconBtnSize}
           className="pl-1 group overflow-hidden"
-          placeholder="Search..."
+          placeholder={t('sidebar.searchPlaceholder')}
           classNames={{
             input: "whitespace-nowrap text-ellipsis w-full"
           }}
@@ -281,7 +285,7 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
             onPress={() => openNewTabModal()}
           >
             <p className="text-start w-full">
-              New Tab
+              {t('sidebar.newTab')}
             </p>
           </Button>
         </div>
@@ -339,7 +343,7 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
             }
           </div>
 
-          <Tooltip size="sm" content="New Space">
+          <Tooltip size="sm" content={t('sidebar.newSpace')}>
             <Button variant="light" isIconOnly size={iconBtnSize}>
               <LuPlus size={iconPx}/>
             </Button>

@@ -44,7 +44,9 @@ const api = {
   forwardWheel: (event: { deltaX: number; deltaY: number; deltaMode: number; x: number; y: number }) =>
     ipcRenderer.invoke('forward-wheel', event),
   // 读取系统自然滚动偏好（macOS 检测，其他平台返回 false）
-  getNaturalScroll: () => ipcRenderer.invoke('get-natural-scroll')
+  getNaturalScroll: () => ipcRenderer.invoke('get-natural-scroll'),
+  // 读取系统语言（app.getLocale() 归一化为受支持的 Locale，zh* → 'zh-CN'，否则 'en'）
+  getSystemLocale: () => ipcRenderer.invoke('get-system-locale')
 };
 
 const storeApi = {

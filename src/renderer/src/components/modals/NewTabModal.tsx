@@ -4,19 +4,22 @@ import { LuSearch } from 'react-icons/lu';
 import { debounce, normalizeUrl } from '@renderer/lib/utils';
 import { SearchOption } from '@renderer/lib/search';
 import { getUISizePrefs, UISize } from '@renderer/lib/settings';
+import type { TFunction } from '@renderer/lib/i18n';
 
 export function NewTabModalContent({
   onNewTab,
   isOpen,
   onOpenChange,
   inputContent,
-  uiSize
+  uiSize,
+  t
 } : {
   onNewTab: (url: string) => void;
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   inputContent?: string;
   uiSize?: UISize;
+  t: TFunction;
 }) {
   const { icon: iconPx, modalInput, modalTitle, modalDesc } = getUISizePrefs(uiSize);
   const [input, setInput] = useState<string>(inputContent || "");
@@ -73,12 +76,12 @@ export function NewTabModalContent({
   }
 
   const debouncedSearch = useMemo(
-    () => debounce((input: string) => {
+    () => debounce((input: string, tfn: TFunction) => {
       const url = normalizeUrl(input);
       const newOptions: SearchOption[] = [];
       if (url.includes("https://www.google.com/search?q=")) {
         newOptions.push({
-          title: 'Search with Google',
+          title: tfn('modal.newTab.searchGoogle'),
           description: input,
           url,
         });
@@ -89,7 +92,7 @@ export function NewTabModalContent({
         });
         const encode = encodeURIComponent(input);
         newOptions.push({
-          title: 'Search with Google',
+          title: tfn('modal.newTab.searchGoogle'),
           description: input,
           url: `https://www.google.com/search?q=${encode}`
         });
@@ -101,11 +104,11 @@ export function NewTabModalContent({
 
   useEffect(() => {
     if (input.trim()) {
-      debouncedSearch(input);
+      debouncedSearch(input, t);
     } else {
       setOptions([]);
     }
-  }, [input]);
+  }, [input, t, debouncedSearch]);
 
   useEffect(() => {
     // 当出现 option 时，选中第一个
@@ -151,7 +154,7 @@ export function NewTabModalContent({
               size={modalInput}
               onValueChange={setInput}
               value={input}
-              placeholder="Search..."
+              placeholder={t('modal.newTab.searchPlaceholder')}
               startContent={<LuSearch size={iconPx} className="mr-1"/>}
               onKeyDown={(e) => handleKeyDown(e, onClose)}
               classNames={{
@@ -201,9 +204,13 @@ export function NewTabModalContent({
 
 export default function useNewTabModal(
   onNewTab: (url: string) => void,
-  uiSize?: UISize
+  uiSize?: UISize,
+  t?: TFunction
 ): [() => void, ReactNode] {
   const {isOpen, onOpen, onOpenChange} = useDisclosure();
+
+  // t 由 App 提供；理论上不会缺失，这里给个回退避免类型为可选时的运行时报错
+  const tfn: TFunction = t ?? ((k) => k as never);
 
   return [
     onOpen,
@@ -212,6 +219,7 @@ export default function useNewTabModal(
       isOpen={isOpen}
       onOpenChange={onOpenChange}
       uiSize={uiSize}
+      t={tfn}
     />
   ];
 }

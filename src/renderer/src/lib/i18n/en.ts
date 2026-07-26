@@ -1,0 +1,137 @@
+/**
+ * 英文字典 —— 作为翻译 key 的真相源。
+ *
+ * 约定（见 AGENTS.md §i18n）：
+ * - 新增文案时先在此文件加 key + 英文原文，再在 `zh-CN.ts` 补对应译文。
+ * - key 用点分命名空间，与文件/功能对应（menu.* / context.* / sidebar.* / modal.* / settings.* / dialog.*）。
+ * - 需要插值的占位用 `{name}` 形式，由 `translate()` 替换。
+ *
+ * 本文件刻意无 React / Electron 依赖（纯数据），以便主进程（Node）与各 renderer 入口共用。
+ */
+export const enMessages = {
+  'app.name': 'Zot Browser',
+
+  // 应用菜单（src/main/menu.ts）
+  'menu.edit': 'Edit',
+  'menu.view': 'View',
+  'menu.window': 'Window',
+  'menu.tab': 'Tab',
+  'menu.develop': 'Develop',
+  'menu.copy': 'Copy',
+  'menu.paste': 'Paste',
+  'menu.undo': 'Undo',
+  'menu.redo': 'Redo',
+  'menu.selectAll': 'Select All',
+  'menu.toggleSidebar': 'Toggle SideBar',
+  'menu.settings': 'Settings…',
+  'menu.extensions': 'Extensions…',
+  'menu.newTab': 'New Tab',
+  'menu.closeTab': 'Close Tab',
+  'menu.reload': 'Reload',
+  'menu.goBack': 'Go Back',
+  'menu.goForward': 'Go Forward',
+  'menu.select': 'Select',
+  'menu.lastTab': 'Last Tab',
+  'menu.tabN': 'Tab {n}', // 带插值：Tab 1..Tab 8
+  'menu.developerTools': 'Developer Tools',
+  'menu.electronDevTools': 'Electron Developer Tools',
+  'menu.uiDevTools': 'UI Developer Tools',
+  'menu.clearTrustedCerts': 'Clear Trusted Certificates',
+
+  // 原生对话框（menu.ts 清除证书流程）
+  'dialog.clearCerts.title': 'Clear Trusted Certificates',
+  'dialog.clearCerts.message': 'Are you sure you want to clear all trusted certificates?',
+  'dialog.clearCerts.confirm': 'Clear',
+  'dialog.clearCerts.cancel': 'Cancel',
+  'dialog.clearCerts.success': 'Trusted certificates cleared.',
+  'dialog.clearCerts.ok': 'OK',
+
+  // 标签右键菜单（App.tsx）
+  'context.tab.pin': 'Pin',
+  'context.tab.unpin': 'Unpin',
+  'context.tab.rename': 'Rename',
+  'context.tab.editName': 'Edit name',
+  'context.tab.select': 'Select',
+  'context.tab.close': 'Close',
+
+  // 网页右键菜单（App.tsx）
+  'context.web.back': 'Back',
+  'context.web.forward': 'Forward',
+  'context.web.reload': 'Reload',
+  'context.web.openLinkNewTab': 'Open link in new tab',
+  'context.web.copyLink': 'Copy link address',
+  'context.web.copyImage': 'Copy image address',
+  'context.web.cut': 'Cut',
+  'context.web.copy': 'Copy',
+  'context.web.paste': 'Paste',
+  'context.web.delete': 'Delete',
+  'context.web.selectAll': 'Select all',
+  'context.web.viewSource': 'View page source',
+  'context.web.inspect': 'Inspect',
+
+  // 侧栏（SideBar.tsx）
+  'sidebar.settings': 'Settings',
+  'sidebar.extensions': 'Extensions',
+  'sidebar.hideSidebar': 'Hide Sidebar',
+  'sidebar.showSidebar': 'Show Sidebar',
+  'sidebar.searchPlaceholder': 'Search...',
+  'sidebar.newTab': 'New Tab',
+  'sidebar.newSpace': 'New Space',
+  'sidebar.more': 'More',
+
+  // 重命名标签弹窗（RenameTabModal.tsx）
+  'modal.rename.title': 'Rename Tab',
+  'modal.rename.placeholder': 'Enter a custom name (leave empty to reset)',
+  'modal.rename.cancel': 'Cancel',
+  'modal.rename.save': 'Save',
+
+  // 新标签 / 地址栏弹窗（NewTabModal.tsx）
+  'modal.newTab.searchPlaceholder': 'Search...',
+  'modal.newTab.searchGoogle': 'Search with Google',
+
+  // 不安全 HTTPS 证书警告（InSecureHttpsCertificateModal.tsx）
+  'modal.cert.title': 'Insecure HTTPS Certificate',
+  'modal.cert.url': 'URL',
+  'modal.cert.error': 'Error',
+  'modal.cert.subject': 'Subject Name',
+  'modal.cert.issuer': 'Issuer Name',
+  'modal.cert.expiry': 'Expiry',
+  'modal.cert.fingerprint': 'Finger Print',
+  'modal.cert.warning': 'If you trust this site, choose continue to access, otherwise, please go back.',
+  'modal.cert.continue': 'Continue to Access (Trust and Remember)',
+  'modal.cert.return': 'Return',
+
+  // 空状态（WebViewContainer.tsx）
+  'empty.openTab': 'Open a tab to start browsing',
+
+  // 设置页（SettingsApp.tsx）
+  'settings.title': 'Settings',
+  'settings.subtitle': 'Changes apply to the browser instantly.',
+  'settings.general': 'General',
+  'settings.language': 'Language',
+  'settings.languageDesc': 'Choose the interface language. Changes apply instantly.',
+  'settings.languageSystem': 'Follow system',
+  'settings.languageEn': 'English',
+  'settings.languageZhCN': '简体中文',
+  'settings.appearance': 'Appearance',
+  'settings.showSidebar': 'Show sidebar',
+  'settings.showSidebarDesc': 'Display the tab sidebar on the left.',
+  'settings.showFullUrl': 'Show full URL',
+  'settings.showFullUrlDesc': 'Show the full address instead of just the host in the address bar.',
+  'settings.sidebarWidth': 'Sidebar width',
+  'settings.sidebarWidthDesc': 'Width of the sidebar in pixels (200–500).',
+  'settings.uiSize': 'UI size',
+  'settings.uiSizeDesc': 'Scale of controls, icons, and text across the sidebar and dialogs.',
+  'settings.uiSizeSmall': 'Small',
+  'settings.uiSizeMedium': 'Medium',
+  'settings.uiSizeLarge': 'Large',
+  'settings.behavior': 'Behavior',
+  'settings.naturalScroll': 'Natural scrolling',
+  'settings.naturalScrollDesc': 'Reverse scroll direction, matching trackpad conventions.',
+  'settings.unloadTabs': 'Unload inactive tabs after',
+  'settings.unloadTabsDesc': 'Minutes of inactivity before a background tab is unloaded (media-playing tabs are exempt).',
+
+  // 扩展页（ExtensionsApp.tsx）
+  'extensions.title': 'Extensions',
+  'extensions.comingSoon': 'Coming soon.',
+} as const;

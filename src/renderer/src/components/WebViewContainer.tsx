@@ -3,6 +3,7 @@ import { Button, Card } from '@heroui/react';
 import { LuGlobe, LuMaximize, LuMinimize, LuMinus, LuX } from 'react-icons/lu';
 import { ReactNode, RefObject, useEffect, useMemo, useRef, useState } from 'react';
 import { Tab } from '@renderer/lib/tab';
+import type { TFunction } from '@renderer/lib/i18n';
 
 /**
  * Electron cursor-changed 的 type 字符串 → CSS cursor 值。
@@ -39,7 +40,8 @@ export default function WebViewContainer({
   naturalScroll = false,
   cursorType = 'default',
   hoverURL = '',
-  currentTab = null
+  currentTab = null,
+  t
 } : {
   children?: ReactNode;
   hide?: boolean;
@@ -52,6 +54,8 @@ export default function WebViewContainer({
   hoverURL?: string;
   /** 当前标签，用于判断是否需要展示空白占位页 */
   currentTab?: Tab | null;
+  /** 翻译函数（由上层根据当前 locale 提供） */
+  t: TFunction;
 }) {
   const [showWindowButtons, setShowWindowButtons] = useState<boolean>(false);
   const [isMaximized, setIsMaximized] = useState<boolean>(false);
@@ -214,7 +218,7 @@ export default function WebViewContainer({
           {isEmpty && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 select-none pointer-events-none bg-white rounded-medium overflow-hidden">
               <LuGlobe size={48} className="text-default-300" strokeWidth={1.5} />
-              <p className="text-sm text-default-400">Open a tab to start browsing</p>
+              <p className="text-sm text-default-400">{t('empty.openTab')}</p>
             </div>
           )}
           {/* 悬停链接状态条（左下角，类似浏览器状态栏） */}

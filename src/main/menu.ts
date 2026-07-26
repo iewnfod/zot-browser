@@ -1,7 +1,8 @@
 import MenuItemConstructorOptions = Electron.MenuItemConstructorOptions;
 import MenuItem = Electron.MenuItem;
-import {BrowserWindow, dialog, ipcMain} from 'electron';
+import {app, BrowserWindow, dialog, ipcMain} from 'electron';
 import { getUiView } from './viewManager';
+import { localeFromTag, resolveLocale, translate, type Locale } from '../renderer/src/lib/i18n';
 
 const Store = require('electron-store').default;
 const menuStore = new Store();
@@ -19,87 +20,100 @@ function emitMainEvent(eventName: string, ...args: unknown[]) {
   ipcMain.emit(eventName, args);
 }
 
-export function MenuTemplate(mainWindow: BrowserWindow) {
+/**
+ * 计算主进程（应用菜单 / 原生对话框）当前生效的语言。
+ * 优先读 settings.locale；为 undefined（跟随系统）时用 app.getLocale() 探测。
+ * 菜单只在构建时读取一次，故语言切换需重建菜单（见 index.ts 的 rebuild-application-menu）。
+ */
+export function currentMenuLocale(): Locale {
+  const settings = menuStore.get('settings') as { locale?: unknown } | undefined;
+  return resolveLocale(settings?.locale, localeFromTag(app.getLocale()));
+}
+
+export function MenuTemplate(mainWindow: BrowserWindow, locale: Locale) {
+  const t = (key: Parameters<typeof translate>[1], params?: Record<string, string | number>) =>
+    translate(locale, key, params);
+
   const MenuTemplate: (MenuItemConstructorOptions | MenuItem)[] = [
     {
-      label: 'Zot Browser',
+      label: t('app.name'),
       role: 'appMenu'
     },
     {
-      label: 'Edit',
+      label: t('menu.edit'),
       submenu: [
-        { label: 'Copy', role: 'copy' },
-        { label: 'Paste', role: 'paste' },
-        { label: 'Undo', role: 'undo' },
-        { label: 'Redo', role: 'redo' },
-        { label: 'Select All', role: 'selectAll' }
+        { label: t('menu.copy'), role: 'copy' },
+        { label: t('menu.paste'), role: 'paste' },
+        { label: t('menu.undo'), role: 'undo' },
+        { label: t('menu.redo'), role: 'redo' },
+        { label: t('menu.selectAll'), role: 'selectAll' }
       ]
     },
     {
-      label: 'View',
+      label: t('menu.view'),
       submenu: [
         {
-          label: 'Toggle SideBar',
+          label: t('menu.toggleSidebar'),
           accelerator: 'CmdOrCtrl+Shift+S',
           click: () => emitEvent('menu-toggle-sidebar')
         },
       ]
     },
     {
-      label: 'Window',
+      label: t('menu.window'),
       submenu: [
         {
-          label: 'Settings…',
+          label: t('menu.settings'),
           accelerator: 'CmdOrCtrl+,',
           click: () => emitEvent('menu-open-settings')
         },
         {
-          label: 'Extensions…',
+          label: t('menu.extensions'),
           accelerator: 'CmdOrCtrl+Shift+E',
           click: () => emitEvent('menu-open-extensions')
         },
       ]
     },
     {
-      label: 'Tab',
+      label: t('menu.tab'),
       submenu: [
         {
-          label: 'New Tab',
+          label: t('menu.newTab'),
           accelerator: 'CmdOrCtrl+T',
           click: () => emitEvent('menu-new-tab')
         },
         {
-          label: 'Close Tab',
+          label: t('menu.closeTab'),
           accelerator: 'CmdOrCtrl+W',
           click: () => emitEvent('menu-close-tab')
         },
         {
-          label: 'Reload',
+          label: t('menu.reload'),
           accelerator: 'CmdOrCtrl+R',
           click: () => emitEvent('menu-reload-tab')
         },
         {
-          label: 'Go Back',
+          label: t('menu.goBack'),
           accelerator: 'CmdOrCtrl+[',
           click: () => emitEvent('menu-tab-go-back')
         },
         {
-          label: 'Go Forward',
+          label: t('menu.goForward'),
           accelerator: 'CmdOrCtrl+]',
           click: () => emitEvent('menu-tab-go-forward')
         },
         {
-          label: 'Select',
+          label: t('menu.select'),
           submenu: Array(9).map((i) => {
             if (i == 8) {
               return {
-                label: 'Last Tab',
+                label: t('menu.lastTab'),
                 accelerator: 'CmdOrCtrl+9',
                 click: () => emitEvent('menu-select-last-tab')
               };
             } else {
               return {
-                label: `Tab ${i+1}`,
+                label: t('menu.tabN', { n: i + 1 }),
                 accelerator: `CmdORCtrl+${i+1}`,
                 click: () => emitEvent('menu-select-tab', i)
               };
@@ -109,29 +123,29 @@ export function MenuTemplate(mainWindow: BrowserWindow) {
       ]
     },
     {
-      label: 'Develop',
+      label: t('menu.develop'),
       submenu: [
-        { label: 'Developer Tools', accelerator: 'F12' },
+        { label: t('menu.developerTools'), accelerator: 'F12' },
         {
-          label: 'Electron Developer Tools',
+          label: t('menu.electronDevTools'),
           accelerator: 'Shift+F12',
           click: () => emitEvent('menu-open-electron-developer')
         },
         {
-          label: 'UI Developer Tools',
+          label: t('menu.uiDevTools'),
           accelerator: 'Shift+CmdOrCtrl+I',
           click: () => emitMainEvent('menu-open-ui-developer')
         },
         { type: 'separator' },
         {
-          label: 'Clear Trusted Certificates',
+          label: t('menu.clearTrustedCerts'),
           click: async () => {
             // 对话框挂载到主窗口
             const { response } = await dialog.showMessageBox(mainWindow, {
               type: 'question',
-              title: '清除已信任证书',
-              message: '确定要清除所有已信任的证书吗？',
-              buttons: ['清除', '取消'],
+              title: t('dialog.clearCerts.title'),
+              message: t('dialog.clearCerts.message'),
+              buttons: [t('dialog.clearCerts.confirm'), t('dialog.clearCerts.cancel')],
               defaultId: 1,
               cancelId: 1,
               noLink: true,
@@ -140,8 +154,8 @@ export function MenuTemplate(mainWindow: BrowserWindow) {
               menuStore.delete('allowedCertificates');
               await dialog.showMessageBox(mainWindow, {
                 type: 'info',
-                message: '已清除已信任的证书。',
-                buttons: ['确定']
+                message: t('dialog.clearCerts.success'),
+                buttons: [t('dialog.clearCerts.ok')]
               });
             }
           }

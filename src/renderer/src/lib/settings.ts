@@ -1,3 +1,5 @@
+import type { Locale } from './i18n';
+
 export interface Settings {
   ua?: string;
   showSideBar: boolean;
@@ -7,6 +9,11 @@ export interface Settings {
   naturalScroll?: boolean;
   /** 全 UI 尺寸档位（sm/md/lg），作用于所有面向用户的控件（见 AGENTS.md §6.4） */
   uiSize?: UISize;
+  /**
+   * 界面语言。`undefined` 表示「跟随系统」（由 app.getLocale() 探测，zh* → 简体中文，否则英语）。
+   * 写入后经现有 settings-changed 广播同步到三个 renderer 入口，并触发主进程重建应用菜单。
+   */
+  locale?: Locale;
 }
 
 /** UI 尺寸档位，映射到 HeroUI 控件的 size 与各类像素/Tailwind 取值。 */

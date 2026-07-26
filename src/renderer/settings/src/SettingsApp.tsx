@@ -1,6 +1,11 @@
 import { Card, CardBody, Divider, Input, Select, SelectItem, Switch } from '@heroui/react';
 import { useEffect, useState } from 'react';
 import { getDefaultSettings, resolveUISize, Settings, UISize } from '@renderer/lib/settings';
+import { DEFAULT_LOCALE, Locale, resolveLocale } from '@renderer/lib/i18n';
+import { useT } from '@renderer/lib/useT';
+
+/** 设置页 Language 下拉选项的内部值：'' 表示跟随系统，否则为具体 Locale。 */
+type LanguageSelectValue = '' | Locale;
 
 /**
  * zot://settings 设置页。
@@ -15,6 +20,7 @@ import { getDefaultSettings, resolveUISize, Settings, UISize } from '@renderer/l
  */
 export default function SettingsApp() {
   const [settings, setSettings] = useState<Settings>(getDefaultSettings());
+  const [systemLocale, setSystemLocale] = useState<Locale>(DEFAULT_LOCALE);
   const [sidebarWidth, setSidebarWidth] = useState<string>(String(settings.sidebarWidth));
   const [clearIntervalMin, setClearIntervalMin] = useState<string>(
     String(Math.round((settings.clearTabInterval ?? getDefaultSettings().clearTabInterval!) / 60000))
@@ -22,6 +28,8 @@ export default function SettingsApp() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
+    // 探测系统语言（用于 settings.locale 为 undefined「跟随系统」时的回退与显示）
+    window.api.getSystemLocale().then((sys) => setSystemLocale(sys));
     window.store.get('settings').then((data) => {
       const base = data ?? getDefaultSettings();
       // 与主 UI 首次加载逻辑一致：未设置 naturalScroll 时探测系统偏好
@@ -89,6 +97,18 @@ export default function SettingsApp() {
     }
   }
 
+  // 当前生效语言 + 翻译函数（settings.locale 为 undefined 时跟随系统）。
+  // 注意：hooks 必须在任何 early return 之前调用。
+  const locale = resolveLocale(settings.locale, systemLocale);
+  const t = useT(locale);
+  // Language 下拉当前选中值：跟随系统时为 ''，否则为具体 Locale
+  const languageSelectValue: LanguageSelectValue = settings.locale ?? '';
+
+  // 页面标题随语言切换
+  useEffect(() => {
+    document.title = t('settings.title');
+  }, [t]);
+
   if (!loaded) {
     return <div className="w-screen h-screen" />;
   }
@@ -97,38 +117,67 @@ export default function SettingsApp() {
     <div className="w-screen h-screen overflow-auto bg-neutral-50">
       <div className="max-w-3xl mx-auto p-8 flex flex-col gap-6">
         <header className="flex flex-col gap-1">
-          <h1 className="text-2xl font-semibold">Settings</h1>
-          <p className="text-sm text-default-500">Changes apply to the browser instantly.</p>
+          <h1 className="text-2xl font-semibold">{t('settings.title')}</h1>
+          <p className="text-sm text-default-500">{t('settings.subtitle')}</p>
         </header>
+
+        {/* 通用 */}
+        <Card shadow="sm">
+          <CardBody className="p-5 flex flex-col gap-4">
+            <h2 className="text-base font-semibold">{t('settings.general')}</h2>
+            <Divider />
+            <Row
+              title={t('settings.language')}
+              description={t('settings.languageDesc')}
+            >
+              <Select
+                aria-label={t('settings.language')}
+                className="max-w-[180px]"
+                size="sm"
+                selectedKeys={[languageSelectValue]}
+                disallowEmptySelection
+                onSelectionChange={(keys) => {
+                  const v = Array.from(keys)[0] as LanguageSelectValue;
+                  // '' 表示跟随系统 → 写入 undefined（不落库 locale，由系统语言决定）
+                  commit({ locale: v === '' ? undefined : v });
+                }}
+              >
+                <SelectItem key="">{t('settings.languageSystem')}</SelectItem>
+                <SelectItem key="en">{t('settings.languageEn')}</SelectItem>
+                <SelectItem key="zh-CN">{t('settings.languageZhCN')}</SelectItem>
+              </Select>
+            </Row>
+          </CardBody>
+        </Card>
 
         {/* 外观 */}
         <Card shadow="sm">
           <CardBody className="p-5 flex flex-col gap-4">
-            <h2 className="text-base font-semibold">Appearance</h2>
+            <h2 className="text-base font-semibold">{t('settings.appearance')}</h2>
             <Divider />
             <Row
-              title="Show sidebar"
-              description="Display the tab sidebar on the left."
+              title={t('settings.showSidebar')}
+              description={t('settings.showSidebarDesc')}
             >
               <Switch
                 isSelected={settings.showSideBar}
                 onValueChange={(v) => commit({ showSideBar: v })}
-                aria-label="Show sidebar"
+                aria-label={t('settings.showSidebar')}
               />
             </Row>
             <Row
-              title="Show full URL"
-              description="Show the full address instead of just the host in the address bar."
+              title={t('settings.showFullUrl')}
+              description={t('settings.showFullUrlDesc')}
             >
               <Switch
                 isSelected={!!settings.showFullUrl}
                 onValueChange={(v) => commit({ showFullUrl: v })}
-                aria-label="Show full URL"
+                aria-label={t('settings.showFullUrl')}
               />
             </Row>
             <Row
-              title="Sidebar width"
-              description="Width of the sidebar in pixels (200–500)."
+              title={t('settings.sidebarWidth')}
+              description={t('settings.sidebarWidthDesc')}
             >
               <Input
                 type="number"
@@ -141,11 +190,11 @@ export default function SettingsApp() {
               />
             </Row>
             <Row
-              title="UI size"
-              description="Scale of controls, icons, and text across the sidebar and dialogs."
+              title={t('settings.uiSize')}
+              description={t('settings.uiSizeDesc')}
             >
               <Select
-                aria-label="UI size"
+                aria-label={t('settings.uiSize')}
                 className="max-w-[140px]"
                 size="sm"
                 selectedKeys={[resolveUISize(settings)]}
@@ -155,9 +204,9 @@ export default function SettingsApp() {
                   if (v) commit({ uiSize: v });
                 }}
               >
-                <SelectItem key="sm">Small</SelectItem>
-                <SelectItem key="md">Medium</SelectItem>
-                <SelectItem key="lg">Large</SelectItem>
+                <SelectItem key="sm">{t('settings.uiSizeSmall')}</SelectItem>
+                <SelectItem key="md">{t('settings.uiSizeMedium')}</SelectItem>
+                <SelectItem key="lg">{t('settings.uiSizeLarge')}</SelectItem>
               </Select>
             </Row>
           </CardBody>
@@ -166,21 +215,21 @@ export default function SettingsApp() {
         {/* 行为 */}
         <Card shadow="sm">
           <CardBody className="p-5 flex flex-col gap-4">
-            <h2 className="text-base font-semibold">Behavior</h2>
+            <h2 className="text-base font-semibold">{t('settings.behavior')}</h2>
             <Divider />
             <Row
-              title="Natural scrolling"
-              description="Reverse scroll direction, matching trackpad conventions."
+              title={t('settings.naturalScroll')}
+              description={t('settings.naturalScrollDesc')}
             >
               <Switch
                 isSelected={!!settings.naturalScroll}
                 onValueChange={(v) => commit({ naturalScroll: v })}
-                aria-label="Natural scrolling"
+                aria-label={t('settings.naturalScroll')}
               />
             </Row>
             <Row
-              title="Unload inactive tabs after"
-              description="Minutes of inactivity before a background tab is unloaded (media-playing tabs are exempt)."
+              title={t('settings.unloadTabs')}
+              description={t('settings.unloadTabsDesc')}
             >
               <Input
                 type="number"

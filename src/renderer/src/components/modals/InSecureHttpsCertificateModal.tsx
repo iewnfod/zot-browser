@@ -9,6 +9,7 @@ import {
   useDisclosure
 } from '@heroui/react';
 import { useEffect, useState } from 'react';
+import type { TFunction } from '@renderer/lib/i18n';
 
 function RowContent({
   title,
@@ -25,7 +26,7 @@ function RowContent({
   );
 }
 
-export default function InSecureHttpsCertificateModal() {
+export default function InSecureHttpsCertificateModal({ t }: { t: TFunction }) {
   const {isOpen, onOpen, onClose, onOpenChange} = useDisclosure();
   const [url, setUrl] = useState('');
   const [error, setError] = useState('');
@@ -80,37 +81,37 @@ export default function InSecureHttpsCertificateModal() {
         {() => (
           <>
             <ModalHeader className="select-none">
-              Insecure HTTPS Certificate
+              {t('modal.cert.title')}
             </ModalHeader>
             <ModalBody>
               <div className="flex flex-col gap-3 w-full">
                 <div className="flex flex-col gap-1 w-full">
-                  <RowContent title={"URL"} content={url}/>
-                  <RowContent title={"Error"} content={error}/>
+                  <RowContent title={t('modal.cert.url')} content={url}/>
+                  <RowContent title={t('modal.cert.error')} content={error}/>
                 </div>
 
                 <Divider className="rounded-medium"/>
 
                 <div className="flex flex-col gap-1">
-                  <RowContent title={"Subject Name"} content={subjectName}/>
-                  <RowContent title={"Issuer Name"} content={issuerName}/>
-                  <RowContent title={"Expiry"} content={expiry}/>
-                  <RowContent title={"Finger Print"} content={fingerPrint}/>
+                  <RowContent title={t('modal.cert.subject')} content={subjectName}/>
+                  <RowContent title={t('modal.cert.issuer')} content={issuerName}/>
+                  <RowContent title={t('modal.cert.expiry')} content={expiry}/>
+                  <RowContent title={t('modal.cert.fingerprint')} content={fingerPrint}/>
                 </div>
 
                 <Divider className="rounded-medium"/>
 
                 <div>
-                  <p className="w-full overflow-hidden whitespace-normal">If you trust this site, choose continue to access, otherwise, please go back.</p>
+                  <p className="w-full overflow-hidden whitespace-normal">{t('modal.cert.warning')}</p>
                 </div>
               </div>
             </ModalBody>
             <ModalFooter>
               <Button color="danger" variant="light" onPress={handleContinue}>
-                Continue to Access (Trust and Remember)
+                {t('modal.cert.continue')}
               </Button>
               <Button color="primary" onPress={handleReturn}>
-                Return
+                {t('modal.cert.return')}
               </Button>
             </ModalFooter>
           </>

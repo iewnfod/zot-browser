@@ -15,6 +15,8 @@ export function loadStoreEvents() {
     if (key === 'settings') {
       const uv = getUiView();
       uv?.webContents.send('settings-changed', value);
+      // 语言随 settings 携带：触发主进程重建应用菜单（index.ts 监听）
+      ipcMain.emit('rebuild-application-menu');
     }
     return true;
   });

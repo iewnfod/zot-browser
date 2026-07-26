@@ -3,12 +3,13 @@ import { electronApp, is } from '@electron-toolkit/utils';
 import { join } from 'path';
 import { execSync } from 'child_process';
 import icon from '../../resources/icon.png?asset';
-import { MenuTemplate } from './menu';
+import { MenuTemplate, currentMenuLocale } from './menu';
 import { Menu } from 'electron';
 import { loadFaviconEvents } from './favicon';
 import { loadWebContentEvents } from './webcontent';
 import { loadStoreEvents } from './storage';
 import { initViewManager, setUiView } from './viewManager';
+import { localeFromTag, type Locale } from '../renderer/src/lib/i18n';
 
 // Linux 下强制 X11（XWayland），保证透明窗口可用。
 if (process.platform === 'linux') {
@@ -128,6 +129,11 @@ app.whenReady().then(() => {
     return detectNaturalScroll();
   });
 
+  // 读取系统语言并归一化为受支持的 Locale（zh* → 'zh-CN'，否则 'en'）。
+  ipcMain.handle('get-system-locale', (): Locale => {
+    return localeFromTag(app.getLocale());
+  });
+
   const mainWindow = createMainWindow();
   initViewManager(mainWindow);
 
@@ -137,8 +143,20 @@ app.whenReady().then(() => {
   });
   setUiView(uiView);
 
-  const menu = Menu.buildFromTemplate(MenuTemplate(mainWindow));
-  Menu.setApplicationMenu(menu);
+  // 用当前生效语言构建应用菜单。
+  const buildMenu = (): void => {
+    const menu = Menu.buildFromTemplate(MenuTemplate(mainWindow, currentMenuLocale()));
+    Menu.setApplicationMenu(menu);
+  };
+  buildMenu();
+
+  // 语言切换时（settings 写入触发）重建应用菜单。
+  // storage.ts 在 store-set('settings') 时会 ipcMain.emit 本事件。
+  ipcMain.on('rebuild-application-menu', () => {
+    if (!mainWindow.isDestroyed()) {
+      buildMenu();
+    }
+  });
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -146,7 +164,7 @@ app.whenReady().then(() => {
       initViewManager(mw);
       const uv = createUiView(mw);
       setUiView(uv);
-      const m = Menu.buildFromTemplate(MenuTemplate(mw));
+      const m = Menu.buildFromTemplate(MenuTemplate(mw, currentMenuLocale()));
       Menu.setApplicationMenu(m);
     }
   });
