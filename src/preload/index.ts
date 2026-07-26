@@ -46,7 +46,21 @@ const api = {
   // 读取系统自然滚动偏好（macOS 检测，其他平台返回 false）
   getNaturalScroll: () => ipcRenderer.invoke('get-natural-scroll'),
   // 读取系统语言（app.getLocale() 归一化为受支持的 Locale，zh* → 'zh-CN'，否则 'en'）
-  getSystemLocale: () => ipcRenderer.invoke('get-system-locale')
+  getSystemLocale: () => ipcRenderer.invoke('get-system-locale'),
+  // 下载控制（主进程 download.ts）
+  downloadPause: (id: string) => ipcRenderer.invoke('download-pause', id),
+  downloadResume: (id: string) => ipcRenderer.invoke('download-resume', id),
+  downloadCancel: (id: string) => ipcRenderer.invoke('download-cancel', id),
+  downloadShowInFolder: (savePath: string) => ipcRenderer.invoke('download-show-in-folder', savePath),
+  downloadOpenFile: (savePath: string) => ipcRenderer.invoke('download-open-file', savePath),
+  downloadClearHistory: () => ipcRenderer.invoke('download-clear-history'),
+  downloadRemoveHistoryItem: (id: string) => ipcRenderer.invoke('download-remove-history-item', id),
+  // 拉取当前进行中的下载快照（页面加载时用，避免错过已开始的下载）
+  downloadGetActive: () => ipcRenderer.invoke('download-get-active'),
+  // 拉取最近 N 条历史（供 SideBar 下载 Dropdown 用，默认 5）
+  downloadGetHistory: (limit?: number) => ipcRenderer.invoke('download-get-history', limit),
+  // 批量检查文件是否存在（UI 据此隐藏「打开 / 在文件夹中显示」按钮）
+  downloadCheckFiles: (savePaths: string[]) => ipcRenderer.invoke('download-check-files', savePaths),
 };
 
 const storeApi = {

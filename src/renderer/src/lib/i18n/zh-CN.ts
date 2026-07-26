@@ -24,6 +24,7 @@ export const zhCNMessages: Record<MessageKey, string> = {
   'menu.toggleSidebar': '显示/隐藏侧栏',
   'menu.settings': '设置…',
   'menu.extensions': '扩展…',
+  'menu.downloads': '下载…',
   'menu.newTab': '新建标签页',
   'menu.closeTab': '关闭标签页',
   'menu.reload': '重新加载',
@@ -133,4 +134,24 @@ export const zhCNMessages: Record<MessageKey, string> = {
   // 扩展页
   'extensions.title': '扩展',
   'extensions.comingSoon': '即将推出。',
+
+  // 下载页
+  'downloads.title': '下载',
+  'downloads.inProgress': '进行中的下载会显示在这里。',
+  'downloads.history': '历史记录',
+  'downloads.empty': '还没有下载内容。',
+  'downloads.viewAll': '查看全部下载',
+  'downloads.inProgressShort': '进行中',
+  'downloads.clearHistory': '清空历史',
+  'downloads.pause': '暂停',
+  'downloads.resume': '继续',
+  'downloads.cancel': '取消',
+  'downloads.showInFolder': '在文件夹中显示',
+  'downloads.fileMissing': '文件已被移动或移除',
+  'downloads.openFile': '打开文件',
+  'downloads.remove': '从列表中移除',
+  'downloads.completed': '已下载',
+  'downloads.cancelled': '已取消',
+  'downloads.interrupted': '已中断',
+  'downloads.unknownSize': '未知大小',
 };

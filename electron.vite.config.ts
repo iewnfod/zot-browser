@@ -30,6 +30,7 @@ export default defineConfig({
           main: resolve('src/renderer/index.html'),
           settings: resolve('src/renderer/settings/index.html'),
           extensions: resolve('src/renderer/extensions/index.html'),
+          downloads: resolve('src/renderer/downloads/index.html'),
         }
       }
     }

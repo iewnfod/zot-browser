@@ -19,6 +19,7 @@ import { pathToFileURL } from 'url';
 const ZOT_PAGES: Record<string, string> = {
   settings: 'settings',
   extensions: 'extensions',
+  downloads: 'downloads',
 };
 
 /** 判断一个 URL 是否是 zot:// 内部页。 */

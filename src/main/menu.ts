@@ -72,6 +72,11 @@ export function MenuTemplate(mainWindow: BrowserWindow, locale: Locale) {
           accelerator: 'CmdOrCtrl+Shift+E',
           click: () => emitEvent('menu-open-extensions')
         },
+        {
+          label: t('menu.downloads'),
+          accelerator: 'CmdOrCtrl+Shift+D',
+          click: () => emitEvent('menu-open-downloads')
+        },
       ]
     },
     {

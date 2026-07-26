@@ -25,6 +25,7 @@ export const enMessages = {
   'menu.toggleSidebar': 'Toggle SideBar',
   'menu.settings': 'Settings…',
   'menu.extensions': 'Extensions…',
+  'menu.downloads': 'Downloads…',
   'menu.newTab': 'New Tab',
   'menu.closeTab': 'Close Tab',
   'menu.reload': 'Reload',
@@ -134,4 +135,24 @@ export const enMessages = {
   // 扩展页（ExtensionsApp.tsx）
   'extensions.title': 'Extensions',
   'extensions.comingSoon': 'Coming soon.',
+
+  // 下载页（DownloadsApp.tsx）
+  'downloads.title': 'Downloads',
+  'downloads.inProgress': 'In-progress downloads appear here.',
+  'downloads.history': 'History',
+  'downloads.empty': 'No downloads yet.',
+  'downloads.viewAll': 'View all downloads',
+  'downloads.inProgressShort': 'In progress',
+  'downloads.clearHistory': 'Clear history',
+  'downloads.pause': 'Pause',
+  'downloads.resume': 'Resume',
+  'downloads.cancel': 'Cancel',
+  'downloads.showInFolder': 'Show in folder',
+  'downloads.fileMissing': 'File moved or removed',
+  'downloads.openFile': 'Open file',
+  'downloads.remove': 'Remove from list',
+  'downloads.completed': 'Downloaded',
+  'downloads.cancelled': 'Cancelled',
+  'downloads.interrupted': 'Interrupted',
+  'downloads.unknownSize': 'Unknown size',
 } as const;

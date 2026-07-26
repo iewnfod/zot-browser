@@ -30,6 +30,9 @@ export const DEFAULT_CLEAR_TAB_INTERVAL = 5 * 60 * 1000;  // default 5 min
  *  - text：Space 标题行文字的 Tailwind 字号类
  *  - modalInput：NewTabModal 搜索框 Input 的 size 档
  *  - modalTitle / modalDesc：NewTabModal 选项卡片标题/描述文字的 Tailwind 字号类
+ *  - downloadRow：下载页每行内边距（Tailwind 类）
+ *  - downloadName：下载页文件名字号（Tailwind 类）
+ *  - downloadMeta：下载页辅助信息字号（Tailwind 类）
  */
 export const UI_SIZE_MAP: Record<UISize, {
   button: 'sm' | 'md' | 'lg';
@@ -39,10 +42,13 @@ export const UI_SIZE_MAP: Record<UISize, {
   modalInput: 'sm' | 'md' | 'lg';
   modalTitle: string;
   modalDesc: string;
+  downloadRow: string;
+  downloadName: string;
+  downloadMeta: string;
 }> = {
-  sm: { button: 'sm', icon: 18, spaceIcon: 14, text: 'text-xs', modalInput: 'md', modalTitle: 'text-md', modalDesc: 'text-small' },
-  md: { button: 'md', icon: 20, spaceIcon: 16, text: 'text-sm', modalInput: 'lg', modalTitle: 'text-lg', modalDesc: 'text-md' },
-  lg: { button: 'lg', icon: 24, spaceIcon: 20, text: 'text-base', modalInput: 'lg', modalTitle: 'text-xl', modalDesc: 'text-lg' },
+  sm: { button: 'sm', icon: 18, spaceIcon: 14, text: 'text-xs', modalInput: 'md', modalTitle: 'text-md', modalDesc: 'text-small', downloadRow: 'p-3', downloadName: 'text-sm', downloadMeta: 'text-xs' },
+  md: { button: 'md', icon: 20, spaceIcon: 16, text: 'text-sm', modalInput: 'lg', modalTitle: 'text-lg', modalDesc: 'text-md', downloadRow: 'p-4', downloadName: 'text-base', downloadMeta: 'text-sm' },
+  lg: { button: 'lg', icon: 24, spaceIcon: 20, text: 'text-base', modalInput: 'lg', modalTitle: 'text-xl', modalDesc: 'text-lg', downloadRow: 'p-5', downloadName: 'text-lg', downloadMeta: 'text-base' },
 };
 
 export function getUISizePrefs(size?: UISize) {

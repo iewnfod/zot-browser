@@ -9,6 +9,7 @@ import { loadFaviconEvents } from './favicon';
 import { loadWebContentEvents } from './webcontent';
 import { loadStoreEvents } from './storage';
 import { initViewManager, setUiView } from './viewManager';
+import { loadDownloadEvents } from './download';
 import { localeFromTag, type Locale } from '../renderer/src/lib/i18n';
 
 // Linux 下强制 X11（XWayland），保证透明窗口可用。
@@ -120,6 +121,8 @@ app.whenReady().then(() => {
 
   loadFaviconEvents();
   loadStoreEvents();
+  // 下载管理：监听网页触发的下载（partition 级）+ 暴露控制 IPC
+  loadDownloadEvents();
 
   ipcMain.handle('scale-factor', () => {
     return screen.getPrimaryDisplay().scaleFactor;

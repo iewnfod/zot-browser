@@ -19,6 +19,28 @@ import ContextMenu, { ContextMenuItem } from '@renderer/components/ContextMenu';
 import { Tab } from '@renderer/lib/tab';
 import { LuArrowLeft, LuArrowRight, LuClipboard, LuCopy, LuEye, LuImage, LuLink2, LuPencilLine, LuPin, LuRotateCw, LuScissors, LuSquareAsterisk, LuTrash2, LuType, LuX } from 'react-icons/lu';
 
+/** 进行中下载快照（与 preload/index.d.ts 的 DownloadProgressPayload 对齐）。 */
+interface ActiveDownloadSnapshot {
+  id: string;
+  filename: string;
+  url: string;
+  received: number;
+  total: number;
+  state: 'progressing' | 'paused' | 'interrupted';
+  speed: number;
+}
+
+/** 最近完成的历史条目（与 preload/index.d.ts 的 DownloadHistoryItem 对齐）。 */
+interface RecentDownloadItem {
+  id: string;
+  filename: string;
+  url: string;
+  savePath: string;
+  total: number;
+  mimeType: string;
+  completedAt: number;
+}
+
 function App() {
   // browser
   const {
@@ -72,7 +94,8 @@ function App() {
       selectTabByIndex,
       selectLastTab,
       openSettings: () => createTab('zot://settings'),
-      openExtensions: () => createTab('zot://extensions')
+      openExtensions: () => createTab('zot://extensions'),
+      openDownloads: () => createTab('zot://downloads')
     });
 
     // 监听从主进程发送的新标签页打开请求
@@ -153,6 +176,88 @@ function App() {
       window.electron.ipcRenderer.removeAllListeners('settings-changed');
     };
   }, []);
+
+  // —— 下载状态（供 SideBar 的下载按钮进度圈 + Dropdown 展示）——
+  // activeDownloads：进行中（驱动按钮图标变进度圈）
+  // recentDownloads：最近完成历史（驱动 Dropdown 列表）
+  // 注：类型与 preload/index.d.ts 的 DownloadProgressPayload / DownloadHistoryItem 对齐。
+  const [activeDownloads, setActiveDownloads] = useState<ActiveDownloadSnapshot[]>([]);
+  const [recentDownloads, setRecentDownloads] = useState<RecentDownloadItem[]>([]);
+  /** 仍存在的文件路径集合（savePath）。文件被删除时对应历史项隐藏「在文件夹中显示」。 */
+  const [existingPaths, setExistingPaths] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    // 初始拉取进行中快照 + 最近历史
+    window.api.downloadGetActive().then((snapshot) => setActiveDownloads(snapshot ?? []));
+    window.api.downloadGetHistory(5).then((items) => {
+      setRecentDownloads(items ?? []);
+      // 批量检查历史项文件是否仍存在
+      const list = items ?? [];
+      if (list.length > 0) {
+        window.api.downloadCheckFiles(list.map((it) => it.savePath)).then((existing) => {
+          setExistingPaths(new Set(existing));
+        });
+      }
+    });
+
+    const onProgress = (_e: unknown, p: ActiveDownloadSnapshot): void => {
+      setActiveDownloads((prev) => {
+        const idx = prev.findIndex((it) => it.id === p.id);
+        if (idx === -1) return [...prev, p];
+        const next = prev.slice();
+        next[idx] = p;
+        return next;
+      });
+    };
+    const onDone = (
+      _e: unknown,
+      d: { id: string; state: 'completed' | 'cancelled' | 'interrupted'; filename: string; url: string; savePath: string; total: number; mimeType: string }
+    ): void => {
+      // 从进行中移除
+      setActiveDownloads((prev) => prev.filter((it) => it.id !== d.id));
+      // completed 时刷新最近历史（主进程已落库，这里重新拉取保证一致）
+      if (d.state === 'completed') {
+        window.api.downloadGetHistory(5).then((items) => setRecentDownloads(items ?? []));
+        // 刚下载完成，文件必然存在
+        setExistingPaths((prev) => new Set(prev).add(d.savePath));
+      }
+    };
+    // 历史被删除/清空（来自主 UI 或 zot://downloads 页面）时，重新拉取保持同步
+    const onHistoryChanged = (): void => {
+      window.api.downloadGetHistory(5).then((items) => {
+        setRecentDownloads(items ?? []);
+        const list = items ?? [];
+        if (list.length > 0) {
+          window.api.downloadCheckFiles(list.map((it) => it.savePath)).then((existing) => {
+            setExistingPaths(new Set(existing));
+          });
+        } else {
+          setExistingPaths(new Set());
+        }
+      });
+    };
+    window.electron.ipcRenderer.on('download-progress', onProgress);
+    window.electron.ipcRenderer.on('download-done', onDone);
+    window.electron.ipcRenderer.on('downloads-history-changed', onHistoryChanged);
+    return () => {
+      window.electron.ipcRenderer.removeAllListeners('download-progress');
+      window.electron.ipcRenderer.removeAllListeners('download-done');
+      window.electron.ipcRenderer.removeAllListeners('downloads-history-changed');
+    };
+  }, []);
+
+  // 定期检测文件存在性（30s），让 SideBar Dropdown 在文件被外部删除/恢复后自动更新按钮显隐。
+  // 仅刷新 existingPaths，不动 recentDownloads（历史变更由 downloads-history-changed 广播覆盖）。
+  useEffect(() => {
+    if (recentDownloads.length === 0) return;
+    const paths = recentDownloads.map((it) => it.savePath).filter(Boolean);
+    if (paths.length === 0) return;
+    const timer = window.setInterval(() => {
+      window.api.downloadCheckFiles(paths).then((existing) => {
+        setExistingPaths(new Set(existing));
+      });
+    }, 30_000);
+    return () => window.clearInterval(timer);
+  }, [recentDownloads]);
 
   useEffect(() => {
     if (isSettingsInitialized && settings) {
@@ -543,6 +648,10 @@ function App() {
           showFullUrl={settings.showFullUrl}
           openSettings={() => createTab('zot://settings')}
           openExtensions={() => createTab('zot://extensions')}
+          openDownloads={() => createTab('zot://downloads')}
+          activeDownloads={activeDownloads}
+          recentDownloads={recentDownloads}
+          existingPaths={existingPaths}
           uiSize={resolveUISize(settings)}
           t={t}
           className="p-2 pr-0"

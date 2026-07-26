@@ -9,6 +9,7 @@ export interface LoadMenuEventsProps {
   selectLastTab: () => void;
   openSettings: () => void;
   openExtensions: () => void;
+  openDownloads: () => void;
 }
 
 export function LoadMenuEvents(props: LoadMenuEventsProps) {
@@ -22,6 +23,7 @@ export function LoadMenuEvents(props: LoadMenuEventsProps) {
   window.electron.ipcRenderer.on('menu-select-last-tab', props.selectLastTab);
   window.electron.ipcRenderer.on('menu-open-settings', props.openSettings);
   window.electron.ipcRenderer.on('menu-open-extensions', props.openExtensions);
+  window.electron.ipcRenderer.on('menu-open-downloads', props.openDownloads);
   console.log('Finish register menu events!');
 }
 
@@ -36,5 +38,6 @@ export function UnLoadMenuEvents() {
   window.electron.ipcRenderer.removeAllListeners('menu-select-last-tab');
   window.electron.ipcRenderer.removeAllListeners('menu-open-settings');
   window.electron.ipcRenderer.removeAllListeners('menu-open-extensions');
+  window.electron.ipcRenderer.removeAllListeners('menu-open-downloads');
   console.log('Finish unregister menu events!');
 }

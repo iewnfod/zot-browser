@@ -2,7 +2,7 @@ import { BrowserWindow, ipcMain, Rectangle, WebContentsView } from 'electron';
 import { join } from 'path';
 import { isInternalPageURL, isZotURL, resolveZotURL } from './zotProtocol';
 
-const PARTITION = 'persist:shared-partition';
+export const PARTITION = 'persist:shared-partition';
 const ZERO_RECT: Rectangle = { x: 0, y: 0, width: 0, height: 0 };
 
 interface ManagedView {
@@ -27,6 +27,26 @@ export function setUiView(view: WebContentsView): void {
 /** 获取 UI view，供其它模块发送事件。 */
 export function getUiView(): WebContentsView | null {
   return uiView && !uiView.webContents.isDestroyed() ? uiView : null;
+}
+
+/**
+ * 向主 UI + 所有 zot:// 内部页 view 广播事件。
+ * 用于下载进度等「主 UI 与内部页都需要感知」的事件：
+ * 主 UI（SideBar 进度圈 / Dropdown）和 zot://downloads 页面各自独立订阅，
+ * 只发给主 UI 会导致已打开的下载页收不到更新。
+ */
+export function broadcastToUiViews(channel: string, ...args: unknown[]): void {
+  const targets: WebContentsView[] = [];
+  if (uiView && !uiView.webContents.isDestroyed()) targets.push(uiView);
+  for (const { view, loadedSrc } of views.values()) {
+    // 仅 zot:// 内部页接收（普通网页不该收到下载进度等内部事件）
+    if (isZotURL(loadedSrc) && !view.webContents.isDestroyed()) {
+      targets.push(view);
+    }
+  }
+  for (const t of targets) {
+    try { t.webContents.send(channel, ...args); } catch (_) {}
+  }
 }
 
 /**

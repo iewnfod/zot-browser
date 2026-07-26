@@ -1,6 +1,41 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import type { Locale } from '../renderer/src/lib/i18n'
 
+/** 主进程 → UI 的下载进度推送载荷（与 src/main/download.ts 保持一致）。 */
+export interface DownloadProgressPayload {
+  id: string;
+  filename: string;
+  url: string;
+  received: number;
+  total: number;
+  /** interrupted 表示下载被中断（可能在 done 之前短暂出现）。 */
+  state: 'progressing' | 'paused' | 'interrupted';
+  /** 下载速度（bytes/sec，EMA 平滑后）。paused/interrupted 时为 0。 */
+  speed: number;
+}
+
+/** 主进程 → UI 的下载完成事件载荷。 */
+export interface DownloadDonePayload {
+  id: string;
+  filename: string;
+  url: string;
+  savePath: string;
+  state: 'completed' | 'cancelled' | 'interrupted';
+  total: number;
+  mimeType: string;
+}
+
+/** 持久化的已完成下载条目（与 src/main/download.ts 的 DownloadHistoryItem 一致）。 */
+export interface DownloadHistoryItem {
+  id: string;
+  filename: string;
+  url: string;
+  savePath: string;
+  total: number;
+  mimeType: string;
+  completedAt: number;
+}
+
 declare global {
   interface Window {
     electron: ElectronAPI
@@ -40,6 +75,17 @@ declare global {
       forwardWheel: (event: { deltaX: number; deltaY: number; deltaMode: number; x: number; y: number }) => Promise<void>,
       getNaturalScroll: () => Promise<boolean>,
       getSystemLocale: () => Promise<Locale>,
+      // 下载控制（主进程 download.ts）
+      downloadPause: (id: string) => Promise<boolean>,
+      downloadResume: (id: string) => Promise<boolean>,
+      downloadCancel: (id: string) => Promise<boolean>,
+      downloadShowInFolder: (savePath: string) => Promise<boolean>,
+      downloadOpenFile: (savePath: string) => Promise<boolean>,
+      downloadClearHistory: () => Promise<boolean>,
+      downloadRemoveHistoryItem: (id: string) => Promise<boolean>,
+      downloadGetActive: () => Promise<DownloadProgressPayload[]>,
+      downloadGetHistory: (limit?: number) => Promise<DownloadHistoryItem[]>,
+      downloadCheckFiles: (savePaths: string[]) => Promise<string[]>,
     },
     store: {
       get: (key: string) => Promise<any>,
