@@ -108,6 +108,9 @@ declare global {
       extensionUninstall: (id: string) => Promise<boolean>,
       extensionGetIcon: (id: string) => Promise<string | undefined>,
       extensionSetPinned: (id: string, pinned: boolean) => Promise<boolean>,
+      // 开发者设置
+      openConfigFile: () => Promise<boolean>,
+      openUIDevTools: () => Promise<boolean>,
     },
     store: {
       get: (key: string) => Promise<any>,

@@ -1,6 +1,6 @@
 import { Button, Card, CardBody, Divider, Input, Select, SelectItem, Switch } from '@heroui/react';
 import { useEffect, useState } from 'react';
-import { LuPuzzle } from 'react-icons/lu';
+import { LuCode, LuPuzzle } from 'react-icons/lu';
 import { getDefaultSettings, resolveUISize, Settings, UISize } from '@renderer/lib/settings';
 import { DEFAULT_LOCALE, Locale, resolveLocale } from '@renderer/lib/i18n';
 import { useT } from '@renderer/lib/useT';
@@ -263,6 +263,41 @@ export default function SettingsApp() {
                 onPress={() => window.electron.ipcRenderer.send('open-internal-url', 'zot://extensions')}
               >
                 {t('settings.openExtensions')}
+              </Button>
+            </Row>
+          </CardBody>
+        </Card>
+
+        {/* 开发者设置 */}
+        <Card shadow="sm">
+          <CardBody className="p-5 flex flex-col gap-4">
+            <h2 className="text-base font-semibold">{t('settings.developer')}</h2>
+            <Divider />
+            <p className="text-xs text-default-400">{t('settings.developerDesc')}</p>
+            <Row
+              title={t('settings.openConfigFile')}
+              description={t('settings.openConfigFileDesc')}
+            >
+              <Button
+                size="sm"
+                variant="flat"
+                startContent={<LuCode />}
+                onPress={() => window.api.openConfigFile()}
+              >
+                {t('settings.openConfigFile')}
+              </Button>
+            </Row>
+            <Row
+              title={t('settings.openUIDevTools')}
+              description={t('settings.openUIDevToolsDesc')}
+            >
+              <Button
+                size="sm"
+                variant="flat"
+                startContent={<LuCode />}
+                onPress={() => window.api.openUIDevTools()}
+              >
+                {t('settings.openUIDevTools')}
               </Button>
             </Row>
           </CardBody>

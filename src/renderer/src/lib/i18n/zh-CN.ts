@@ -134,6 +134,14 @@ export const zhCNMessages: Record<MessageKey, string> = {
   'settings.extensionsDesc': '管理已安装的浏览器扩展。',
   'settings.openExtensions': '查看扩展',
 
+  // 开发者设置
+  'settings.developer': '开发者',
+  'settings.developerDesc': '调试与开发工具。',
+  'settings.openConfigFile': '打开配置文件',
+  'settings.openConfigFileDesc': '在文件管理器中打开配置文件。',
+  'settings.openUIDevTools': '打开 UI 开发者工具',
+  'settings.openUIDevToolsDesc': '打开浏览器 UI 的开发者工具。',
+
   // 扩展页
   'extensions.title': '扩展',
   'extensions.subtitle': '管理已加载的浏览器扩展。更改对新标签页和导航生效。',

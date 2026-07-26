@@ -135,6 +135,14 @@ export const enMessages = {
   'settings.extensionsDesc': 'Manage installed browser extensions.',
   'settings.openExtensions': 'View extensions',
 
+  // 开发者设置
+  'settings.developer': 'Developer',
+  'settings.developerDesc': 'Tools for debugging and development.',
+  'settings.openConfigFile': 'Open config file',
+  'settings.openConfigFileDesc': 'Reveal the configuration file in your file manager.',
+  'settings.openUIDevTools': 'Open UI DevTools',
+  'settings.openUIDevToolsDesc': 'Open the browser UI developer tools.',
+
   // 扩展页（ExtensionsApp.tsx）
   'extensions.title': 'Extensions',
   'extensions.subtitle': 'Manage loaded browser extensions. Changes apply to new tabs and navigations.',

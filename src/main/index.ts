@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, screen, WebContentsView } from 'electron';
+import { app, BrowserWindow, ipcMain, screen, shell, WebContentsView } from 'electron';
 import { electronApp, is } from '@electron-toolkit/utils';
 import { join } from 'path';
 import { execSync } from 'child_process';
@@ -159,6 +159,20 @@ app.whenReady().then(async () => {
   ipcMain.on('menu-open-ui-developer', () => {
     uiView.webContents.openDevTools({ mode: 'detach' });
   });
+
+  // 设置页「开发者设置」：打开 electron-store 配置文件
+  ipcMain.handle('open-config-file', async () => {
+    const configPath = join(app.getPath('userData'), 'config.json');
+    await shell.showItemInFolder(configPath);
+    return true;
+  });
+
+  // 设置页「开发者设置」：打开 UI view 的 DevTools
+  ipcMain.handle('open-ui-devtools', async () => {
+    uiView.webContents.openDevTools({ mode: 'detach' });
+    return true;
+  });
+
   setUiView(uiView);
 
   // 初始化扩展宿主（提供 chrome.* API 兼容层）。必须在 UI view 就绪后、

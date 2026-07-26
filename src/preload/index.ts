@@ -74,6 +74,9 @@ const api = {
   extensionUninstall: (id: string) => ipcRenderer.invoke('extension-uninstall', id),
   extensionGetIcon: (id: string) => ipcRenderer.invoke('extension-get-icon', id),
   extensionSetPinned: (id: string, pinned: boolean) => ipcRenderer.invoke('extension-set-pinned', id, pinned),
+  // 开发者设置
+  openConfigFile: () => ipcRenderer.invoke('open-config-file'),
+  openUIDevTools: () => ipcRenderer.invoke('open-ui-devtools'),
 };
 
 const storeApi = {
