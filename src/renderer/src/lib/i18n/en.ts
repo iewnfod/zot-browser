@@ -131,6 +131,9 @@ export const enMessages = {
   'settings.naturalScrollDesc': 'Reverse scroll direction, matching trackpad conventions.',
   'settings.unloadTabs': 'Unload inactive tabs after',
   'settings.unloadTabsDesc': 'Minutes of inactivity before a background tab is unloaded (media-playing tabs are exempt).',
+  'settings.extensions': 'Extensions',
+  'settings.extensionsDesc': 'Manage installed browser extensions.',
+  'settings.openExtensions': 'View extensions',
 
   // 扩展页（ExtensionsApp.tsx）
   'extensions.title': 'Extensions',
@@ -138,8 +141,8 @@ export const enMessages = {
   'extensions.comingSoon': 'Coming soon.',
   'extensions.installUnpacked': 'Load unpacked',
   'extensions.installZip': 'Install .zip',
-  'extensions.installStore': 'Install from Web Store',
-  'extensions.installStorePlaceholder': 'Paste Chrome Web Store URL or extension ID',
+  'extensions.installStore': 'Open Chrome Web Store',
+  'extensions.storeHint': 'Browse the Chrome Web Store and click "Add to Chrome" to install.',
   'extensions.empty': 'No extensions installed yet.',
   'extensions.enabled': 'Enabled',
   'extensions.disabled': 'Disabled',
@@ -155,8 +158,6 @@ export const enMessages = {
   'extensions.reviewDesc': 'Review the permissions before installing. Electron applies the manifest as a whole, so permissions are all-or-nothing.',
   'extensions.reviewAdd': 'Add extension',
   'extensions.reviewCancel': 'Cancel',
-  'extensions.storeAdd': 'Add',
-  'extensions.storeCancel': 'Cancel',
   'extensions.installedToast': 'Installed “{name}”.',
   'extensions.uninstalledToast': 'Removed “{name}”.',
   'extensions.reloadHint': 'Reload open tabs for changes to take effect.',
@@ -171,7 +172,6 @@ export const enMessages = {
   'extensions.errorCancelled': 'Installation cancelled.',
   'extensions.errorGeneric': 'Installation failed.',
   'extensions.errorAction': 'Action failed.',
-  'extensions.storeExperimental': 'Web Store install is experimental and may fail.',
 
   // 下载页（DownloadsApp.tsx）
   'downloads.title': 'Downloads',

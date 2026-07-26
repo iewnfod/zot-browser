@@ -60,6 +60,25 @@ export interface ParsedExtension {
 }
 
 /**
+ * CWS 网站点击安装时，主进程经 IPC 发给主 UI 弹确认框的载荷。
+ * 由 electron-chrome-web-store 的 beforeInstall details 转换而来（icon 转 data URL）。
+ */
+export interface InstallConfirmPayload {
+  /** Chrome 扩展 ID（CWS 真实 ID）。 */
+  id: string;
+  /** 扩展名（已本地化）。 */
+  name: string;
+  /** 版本。 */
+  version: string;
+  /** 描述（manifest.description，可能缺失）。 */
+  description?: string;
+  /** 图标 data URL（无图标则 undefined）。 */
+  iconUrl?: string;
+  /** 解析出的权限清单（用于审核展示）。 */
+  permissions: ExtensionPermissions;
+}
+
+/**
  * 从 manifest 解析出的、要展示给用户审核的权限清单（去重后的并集）。
  *
  * 注意：Electron 加载 manifest 是整体生效，无法单权限拒绝（拒绝需重写 manifest，

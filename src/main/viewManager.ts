@@ -5,6 +5,19 @@ import { isInternalPageURL, isZotURL, resolveZotURL } from './zotProtocol';
 export const PARTITION = 'persist:shared-partition';
 const ZERO_RECT: Rectangle = { x: 0, y: 0, width: 0, height: 0 };
 
+// —— 扩展宿主生命周期钩子（由 extensions.ts 注册，避免循环依赖）——
+// viewManager 不直接 import extensions（那会成环），改为回调注入。
+interface ViewLifecycleHooks {
+  onViewCreated?: (tabId: string) => void;   // view 创建并加入 Map 后
+  onViewDestroyed?: (tabId: string) => void; // view 从 Map 移除前/后
+  onCurrentTabChanged?: (tabId: string) => void; // 当前标签切换
+}
+let lifecycleHooks: ViewLifecycleHooks = {};
+/** 由 extensions.ts 调用，注入扩展宿主对 view 生命周期的监听。 */
+export function setViewLifecycleHooks(hooks: ViewLifecycleHooks): void {
+  lifecycleHooks = hooks;
+}
+
 interface ManagedView {
   view: WebContentsView;
   loadedSrc: string;
@@ -27,6 +40,75 @@ export function setUiView(view: WebContentsView): void {
 /** 获取 UI view，供其它模块发送事件。 */
 export function getUiView(): WebContentsView | null {
   return uiView && !uiView.webContents.isDestroyed() ? uiView : null;
+}
+
+/** 获取主窗口（供扩展宿主等模块引用）。 */
+export function getMainWindow(): BrowserWindow | null {
+  return mainWindow && !mainWindow.isDestroyed() ? mainWindow : null;
+}
+
+/**
+ * 按 tabId 取该标签对应的 webContents（已销毁则返回 null）。
+ * 供扩展宿主等需要在主进程拿到网页 view 的 webContents 的模块使用。
+ */
+export function getWebContents(tabId: string): Electron.WebContents | null {
+  const entry = views.get(tabId);
+  if (!entry) return null;
+  try {
+    if (!entry.view.webContents.isDestroyed()) return entry.view.webContents;
+  } catch (_) {}
+  return null;
+}
+
+/**
+ * 反向查找：由 webContents.id 找 tabId。
+ * 扩展宿主的 selectTab/removeTab 回调收到的是 webContents，需反查 tabId
+ * 才能发 IPC 给 renderer 操作标签状态。
+ */
+export function getTabIdByWebContentsId(wcId: number): string | null {
+  for (const [tabId, entry] of views) {
+    try {
+      if (!entry.view.webContents.isDestroyed() && entry.view.webContents.id === wcId) {
+        return tabId;
+      }
+    } catch (_) {}
+  }
+  return null;
+}
+
+/** view 就绪等待表：tabId → resolver 列表。createView 完成时逐个 resolve。 */
+const viewWaiters = new Map<string, Array<(wc: Electron.WebContents) => void>>();
+
+/**
+ * 等待某个 tabId 的 webContents 就绪。
+ * 扩展宿主的 createTab 回调需要它：renderer 异步 createTab → shouldRender → viewEnsure
+ * 经过几个 React 渲染周期，view 才会出现在 views Map 里，故需等待。
+ * 超时（默认 5s）则 reject，避免永久挂起。
+ */
+export function waitForView(tabId: string, timeoutMs = 5000): Promise<Electron.WebContents> {
+  const existing = getWebContents(tabId);
+  if (existing) return Promise.resolve(existing);
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      remove();
+      reject(new Error(`waitForView timeout for ${tabId}`));
+    }, timeoutMs);
+    const onReady = (wc: Electron.WebContents): void => {
+      clearTimeout(timer);
+      resolve(wc);
+    };
+    const remove = (): void => {
+      const arr = viewWaiters.get(tabId);
+      if (arr) {
+        const i = arr.indexOf(onReady);
+        if (i >= 0) arr.splice(i, 1);
+        if (arr.length === 0) viewWaiters.delete(tabId);
+      }
+    };
+    const arr = viewWaiters.get(tabId) ?? [];
+    arr.push(onReady);
+    viewWaiters.set(tabId, arr);
+  });
 }
 
 /**
@@ -239,6 +321,15 @@ function createView(tabId: string, src: string, userAgent?: string): void {
   attachForwarders(tabId, view.webContents);
   views.set(tabId, { view, loadedSrc: src });
 
+  // 通知任何在等待该 tabId view 就绪的调用方（如扩展宿主 createTab 回调）。
+  const waiters = viewWaiters.get(tabId);
+  if (waiters) {
+    viewWaiters.delete(tabId);
+    for (const fn of waiters) {
+      try { fn(view.webContents); } catch (_) {}
+    }
+  }
+
   try {
     // zot:// 内部页：加载解析后的真实本地 URL，但 loadedSrc 保留 zot:// 原样（标签栏显示用）
     const realURL = resolveZotURL(src) ?? src;
@@ -246,11 +337,16 @@ function createView(tabId: string, src: string, userAgent?: string): void {
   } catch (e) { console.warn('[viewManager] loadURL threw for', tabId, src, e); }
 
   relayout();
+
+  // 通知扩展宿主：新 view 已就绪（扩展的 tabs 等 API 依赖此注册）
+  lifecycleHooks.onViewCreated?.(tabId);
 }
 
 function destroyView(tabId: string): void {
   const entry = views.get(tabId);
   if (!entry) return;
+  // 通知扩展宿主：view 即将销毁（需在 webContents destroy 前调用，宿主 removeTab 才能引用它）
+  lifecycleHooks.onViewDestroyed?.(tabId);
   if (mainWindow && !mainWindow.isDestroyed()) {
     try { mainWindow.contentView.removeChildView(entry.view); } catch (e) {
       console.warn('[viewManager] removeChildView failed for', tabId, e);
@@ -343,6 +439,8 @@ export function initViewManager(win: BrowserWindow): void {
     currentTabId = tabId;
     if (tabId) bringToFront(tabId);
     relayout();
+    // 通知扩展宿主：活动标签变化（扩展的 tabs.onActiveChanged 等依赖此）
+    if (tabId) lifecycleHooks.onCurrentTabChanged?.(tabId);
   });
 
   ipcMain.handle('set-page-rect', (_e, rect: Rectangle) => {

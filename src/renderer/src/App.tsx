@@ -10,6 +10,7 @@ import { useT } from '@renderer/lib/useT';
 import { DEFAULT_LOCALE, resolveLocale, type Locale } from '@renderer/lib/i18n';
 import ResizeSidebarDivider from '@renderer/components/ResizeSidebarDivider';
 import InSecureHttpsCertificateModal from '@renderer/components/modals/InSecureHttpsCertificateModal';
+import ExtensionInstallConfirmModal from '@renderer/components/modals/ExtensionInstallConfirmModal';
 import useEditTabModal from '@renderer/components/modals/EditTabModal';
 import useRenameTabModal from '@renderer/components/modals/RenameTabModal';
 import { useBrowserState } from '@renderer/hooks/BrowserState';
@@ -109,6 +110,41 @@ function App() {
       window.electron.ipcRenderer.removeAllListeners('open-url-in-new-tab');
     }
   }, [currentTab]);
+
+  // —— 扩展宿主（electron-chrome-extensions）的 tab 桥接 ——
+  // 扩展调 chrome.tabs.create/update({active})/remove 时，主进程经 IPC 请求 renderer
+  // 操作标签状态（真相源在 renderer 的 useBrowserState）。此 effect 仅挂载一次，
+  // 回调内用最新的 createTab/selectTab/closeTab 引用（经 ref，避免频繁重订阅）。
+  const createTabRef = useRef(createTab);
+  const selectTabRef = useRef(selectTab);
+  const closeTabRef = useRef(closeTab);
+  createTabRef.current = createTab;
+  selectTabRef.current = selectTab;
+  closeTabRef.current = closeTab;
+
+  useEffect(() => {
+    // chrome.tabs.create → 开标签并回传 tabId（主进程据此找 webContents）
+    const onCreateReq = (_e: unknown, reqId: string, url: string): void => {
+      const tab = createTabRef.current(url);
+      window.electron.ipcRenderer.send('tabs-create-response', reqId, tab.id);
+    };
+    // chrome.tabs.update({active:true}) → 切到对应标签
+    const onSelect = (_e: unknown, tabId: string): void => {
+      selectTabRef.current(tabId);
+    };
+    // chrome.tabs.remove → 关闭对应标签
+    const onRemove = (_e: unknown, tabId: string): void => {
+      closeTabRef.current(tabId);
+    };
+    window.electron.ipcRenderer.on('tabs-create-request', onCreateReq);
+    window.electron.ipcRenderer.on('tabs-select-by-tabid', onSelect);
+    window.electron.ipcRenderer.on('tabs-remove-by-tabid', onRemove);
+    return () => {
+      window.electron.ipcRenderer.removeListener('tabs-create-request', onCreateReq);
+      window.electron.ipcRenderer.removeListener('tabs-select-by-tabid', onSelect);
+      window.electron.ipcRenderer.removeListener('tabs-remove-by-tabid', onRemove);
+    };
+  }, []);
 
 
   // settings
@@ -680,6 +716,7 @@ function App() {
 
       {/* Modals — 直接在覆盖层显示，无需隐藏页面 */}
       <InSecureHttpsCertificateModal t={t}/>
+      <ExtensionInstallConfirmModal t={t}/>
       {EditTabModal}
       {NewTabModal}
       {RenameTabModal}

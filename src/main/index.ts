@@ -10,13 +10,22 @@ import { loadWebContentEvents } from './webcontent';
 import { loadStoreEvents } from './storage';
 import { initViewManager, setUiView } from './viewManager';
 import { loadDownloadEvents } from './download';
-import { loadExtensionEvents, loadAllEnabledOnBoot } from './extensions';
+import { loadExtensionEvents, loadAllEnabledOnBoot, initExtensionHost } from './extensions';
 import { localeFromTag, type Locale } from '../renderer/src/lib/i18n';
 
 // Linux 下强制 X11（XWayland），保证透明窗口可用。
 if (process.platform === 'linux') {
   app.commandLine.appendSwitch('ozone-platform-hint', 'x11');
 }
+
+// 应用显示名设为 "Zot Browser"（覆盖 package.json 的 npm 包名 zot-browser）。
+// 影响：User-Agent 末尾的 <app>/<version>、系统里的应用显示名、错误对话框标题等。
+// 注意：app.setName 会改变默认 userData 目录（基于 name），故先记下原路径，setName 后
+// 立刻把 userData 钉回原处，避免用户已有数据（扩展 / 设置 / 下载历史）因改名而丢失。
+// 三步都必须在 app.whenReady() 之前完成。
+const originalUserData = app.getPath('userData');
+app.setName('Zot Browser');
+app.setPath('userData', originalUserData);
 
 /** 检测系统自然滚动偏好。macOS 下读取系统设置，其他平台返回 false。 */
 function detectNaturalScroll(): boolean {
@@ -151,6 +160,10 @@ app.whenReady().then(async () => {
     uiView.webContents.openDevTools({ mode: 'detach' });
   });
   setUiView(uiView);
+
+  // 初始化扩展宿主（提供 chrome.* API 兼容层）。必须在 UI view 就绪后、
+  // 首张网页 view 创建前，以便 addTab 注册与 preload 注入都生效。
+  await initExtensionHost();
 
   // 用当前生效语言构建应用菜单。
   const buildMenu = (): void => {

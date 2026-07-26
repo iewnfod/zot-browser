@@ -130,6 +130,9 @@ export const zhCNMessages: Record<MessageKey, string> = {
   'settings.naturalScrollDesc': '反转滚动方向，与触控板习惯一致。',
   'settings.unloadTabs': '非活动标签页卸载时间',
   'settings.unloadTabsDesc': '后台标签页在多少分钟无活动后卸载（正在播放媒体的标签页不受影响）。',
+  'settings.extensions': '扩展',
+  'settings.extensionsDesc': '管理已安装的浏览器扩展。',
+  'settings.openExtensions': '查看扩展',
 
   // 扩展页
   'extensions.title': '扩展',
@@ -137,8 +140,8 @@ export const zhCNMessages: Record<MessageKey, string> = {
   'extensions.comingSoon': '即将推出。',
   'extensions.installUnpacked': '加载未打包目录',
   'extensions.installZip': '从 .zip 安装',
-  'extensions.installStore': '从应用商店安装',
-  'extensions.installStorePlaceholder': '粘贴 Chrome 应用商店链接或扩展 ID',
+  'extensions.installStore': '打开 Chrome 应用商店',
+  'extensions.storeHint': '在 Chrome 应用商店中点击「添加到 Chrome」即可安装。',
   'extensions.empty': '尚未安装扩展。',
   'extensions.enabled': '已启用',
   'extensions.disabled': '已禁用',
@@ -154,8 +157,6 @@ export const zhCNMessages: Record<MessageKey, string> = {
   'extensions.reviewDesc': '安装前请审核权限。Electron 会整体应用 manifest，因此权限为「全有或全无」。',
   'extensions.reviewAdd': '添加扩展',
   'extensions.reviewCancel': '取消',
-  'extensions.storeAdd': '添加',
-  'extensions.storeCancel': '取消',
   'extensions.installedToast': '已安装“{name}”。',
   'extensions.uninstalledToast': '已移除“{name}”。',
   'extensions.reloadHint': '重新加载已打开的标签页以使更改生效。',
@@ -170,7 +171,6 @@ export const zhCNMessages: Record<MessageKey, string> = {
   'extensions.errorCancelled': '已取消安装。',
   'extensions.errorGeneric': '安装失败。',
   'extensions.errorAction': '操作失败。',
-  'extensions.storeExperimental': '应用商店安装为实验性功能，可能失败。',
 
   // 下载页
   'downloads.title': '下载',

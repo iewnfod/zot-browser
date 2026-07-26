@@ -10,15 +10,18 @@ import {
   mkdtemp,
   writeFile,
 } from 'fs/promises';
-import { createHash } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { tmpdir } from 'os';
 import AdmZip from 'adm-zip';
-import { broadcastToUiViews, PARTITION } from './viewManager';
+import { ElectronChromeExtensions } from 'electron-chrome-extensions';
+import { installChromeWebStore } from 'electron-chrome-web-store';
+import { broadcastToUiViews, PARTITION, getUiView, getMainWindow, getWebContents, getTabIdByWebContentsId, waitForView, setViewLifecycleHooks } from './viewManager';
 import { store } from './storage';
 import {
   extractPermissions,
   getDefaultExtensionsState,
   InstalledExtension,
+  InstallConfirmPayload,
   InstallResult,
   ParsedExtension,
   ExtensionPermissions,
@@ -62,6 +65,19 @@ const iconCache = new Map<string, string>();
 /** userData/extensions/ 的绝对路径。 */
 function extensionsRoot(): string {
   return join(app.getPath('userData'), EXTENSIONS_DIRNAME);
+}
+
+/**
+ * 取 partition 的扩展 API（Electron ≥37 迁移到 session.extensions，旧版直接在 session 上）。
+ * 统一从这里取，避免散落的 deprecation 警告，并兼容老版本。
+ */
+function extApi(ses: Electron.Session): {
+  loadExtension: (p: string, opts?: Electron.LoadExtensionOptions) => Promise<Electron.Extension>;
+  removeExtension: (id: string) => void;
+  getExtension: (id: string) => Electron.Extension | undefined;
+} {
+  const withExt = ses as Electron.Session & { extensions?: any };
+  return withExt.extensions ?? (ses as any);
 }
 
 /** 读取持久化状态（缺失返回空默认）。 */
@@ -184,7 +200,7 @@ async function copyAndRegister(srcDir: string, targetPath: string): Promise<Inst
   const ses = session.fromPartition(PARTITION);
   let ext;
   try {
-    ext = await ses.loadExtension(targetPath, { allowFileAccess: true });
+    ext = await extApi(ses).loadExtension(targetPath, { allowFileAccess: true });
   } catch (e) {
     throw new Error(`load-failed:${(e as Error)?.message ?? 'unknown'}`);
   }
@@ -218,7 +234,7 @@ async function enableExtension(id: string): Promise<boolean> {
   const ses = session.fromPartition(PARTITION);
   let ext;
   try {
-    ext = await ses.loadExtension(rec.path, { allowFileAccess: true });
+    ext = await extApi(ses).loadExtension(rec.path, { allowFileAccess: true });
   } catch {
     return false;
   }
@@ -236,7 +252,7 @@ async function disableExtension(id: string): Promise<boolean> {
   if (!rec.enabled) return true;
   const ses = session.fromPartition(PARTITION);
   try {
-    await ses.removeExtension(id);
+    await extApi(ses).removeExtension(id);
   } catch {
     // 即便 removeExtension 报错（例如未加载），也按禁用处理
   }
@@ -251,7 +267,7 @@ async function uninstallExtension(id: string): Promise<boolean> {
   const rec = installed.get(id);
   if (!rec) return false;
   const ses = session.fromPartition(PARTITION);
-  try { await ses.removeExtension(id); } catch (_) { /* 忽略未加载 */ }
+  try { await extApi(ses).removeExtension(id); } catch (_) { /* 忽略未加载 */ }
   await rm(rec.path, { recursive: true, force: true }).catch(() => {});
   installed.delete(id);
   iconCache.delete(id);
@@ -305,7 +321,7 @@ export async function loadAllEnabledOnBoot(): Promise<void> {
       continue;
     }
     try {
-      const ext = await ses.loadExtension(rec.path, { allowFileAccess: true });
+      const ext = await extApi(ses).loadExtension(rec.path, { allowFileAccess: true });
       maybeStartServiceWorker(ext);
     } catch (e) {
       console.warn('[extensions] failed to load on boot:', rec.name, e);
@@ -314,6 +330,232 @@ export async function loadAllEnabledOnBoot(): Promise<void> {
   }
   // 开机可能改了若干 enabled 状态（目录缺失/加载失败），落库一次
   writeState();
+}
+
+// —— electron-chrome-extensions 宿主实例（在 persist:shared-partition 上）——
+// 提供 chrome.* API 兼容层（tabs/runtime/storage/contextMenus/nativeMessaging 等），
+// 使 1Password / Dark Reader 等真实扩展可运行。单实例，绑定一个 session。
+let extensionHost: ElectronChromeExtensions | null = null;
+
+/**
+ * 请求 renderer 开一个标签并回传 tabId。
+ *
+ * 桥接模式（仿 webcontent.ts 的 open-url-in-new-tab，但加了请求/回复）：
+ *   main → uiView: 'tabs-create-request' { reqId, url }
+ *   renderer → main: 'tabs-create-response' (reqId, tabId)
+ * 用 reqId 关联，支持并发请求。
+ */
+function requestRendererCreateTab(url: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const uv = getUiView();
+    if (!uv) { reject(new Error('no UI view')); return; }
+    const reqId = randomUUID();
+    const timer = setTimeout(() => {
+      ipcMain.removeHandler('tabs-create-response');
+      cleanup();
+      reject(new Error('renderer createTab timeout'));
+    }, 5000);
+    const cleanup = (): void => { clearTimeout(timer); };
+    // 一次性 handler：收到对应 reqId 的回复即 resolve
+    const handler = (_e: unknown, replyReqId: string, tabId: string): void => {
+      if (replyReqId !== reqId) return;
+      ipcMain.removeListener('tabs-create-response', handler);
+      cleanup();
+      resolve(tabId);
+    };
+    ipcMain.on('tabs-create-response', handler);
+    uv.webContents.send('tabs-create-request', reqId, url);
+  });
+}
+
+/**
+ * 请求主 UI 弹出「扩展安装确认」Modal，等待用户 allow/deny。
+ *
+ * CWS 网站点击安装时，beforeInstall 在主进程触发；Modal 在 renderer，
+ * 故经 IPC 往返（同 requestRendererCreateTab 的 reqId 关联模式）。
+ * 超时（60s）默认拒绝，避免用户离开后安装永久挂起。
+ */
+function requestRendererInstallConfirm(payload: InstallConfirmPayload): Promise<boolean> {
+  return new Promise((resolve) => {
+    const uv = getUiView();
+    if (!uv) { resolve(false); return; }
+    const reqId = randomUUID();
+    const timer = setTimeout(() => {
+      ipcMain.removeListener('extension-install-confirm-response', handler);
+      resolve(false);
+    }, 60000);
+    const handler = (_e: unknown, replyReqId: string, allowed: boolean): void => {
+      if (replyReqId !== reqId) return;
+      clearTimeout(timer);
+      ipcMain.removeListener('extension-install-confirm-response', handler);
+      resolve(allowed);
+    };
+    ipcMain.on('extension-install-confirm-response', handler);
+    uv.webContents.send('extension-install-confirm-request', reqId, payload);
+  });
+}
+
+/**
+ * 初始化 electron-chrome-extensions 宿主。
+ * 在 index.ts 的 app.whenReady 里、createMainWindow 之后、首张网页 view 创建前调用。
+ *
+ * 提供的 impl 回调把扩展对 tab/window 的操作桥接到我们的标签系统
+ * （标签状态真相源在 renderer，故需经 IPC 往返）。
+ */
+export async function initExtensionHost(): Promise<void> {
+  const ses = session.fromPartition(PARTITION);
+  const win = getMainWindow();
+  if (!win) { console.warn('[extensions] main window not ready, host init skipped'); return; }
+
+  extensionHost = new ElectronChromeExtensions({
+    license: 'GPL-3.0',
+    session: ses,
+    // 扩展调 chrome.tabs.create → 我们让 renderer 开标签，并等 view 就绪后返回 webContents
+    createTab: async (details) => {
+      const url = details.url || 'about:blank';
+      const tabId = await requestRendererCreateTab(url);
+      const wc = await waitForView(tabId);
+      const w = getMainWindow();
+      return [wc, w!];
+    },
+    // 扩展调 chrome.tabs.update({active:true}) / 切换激活标签 → 反查 tabId 后通知 renderer
+    selectTab: (tab) => {
+      const uv = getUiView();
+      const tabId = getTabIdByWebContentsId(tab.id);
+      if (tabId) uv?.webContents.send('tabs-select-by-tabid', tabId);
+    },
+    // 扩展调 chrome.tabs.remove → 反查 tabId 后通知 renderer 关闭对应标签
+    removeTab: (tab) => {
+      const uv = getUiView();
+      const tabId = getTabIdByWebContentsId(tab.id);
+      if (tabId) uv?.webContents.send('tabs-remove-by-tabid', tabId);
+    },
+    // 扩展调 chrome.windows.create → 复用 createTab（单窗口浏览器，新窗口即新标签）
+    createWindow: async () => win,
+    removeWindow: () => { /* 单窗口，忽略 */ },
+  });
+
+  // 处理扩展宿主对当前标签的查询：扩展需要知道"当前活动 tab"。
+  // 库内部维护 addTab 注册的 webContents，selectTab 由我们主动调用驱动。
+  // （库的 selectTab 也会在 addTab 时自动设首个为 active。）
+
+  console.log('[extensions] electron-chrome-extensions host initialized on', PARTITION);
+
+  // 监听 session 上的 extension-loaded：任何来源（启动加载 / 启用 / CWS 安装 / 自动更新）
+  // 加载扩展后都会触发。借此把 CWS 安装的扩展登记进我们的 installed 记录，供扩展页展示与管理。
+  ses.addListener('extension-loaded', (_e, ext) => {
+    try {
+      if (!installed.has(ext.id)) {
+        const manifest = ext.manifest as Record<string, unknown>;
+        installed.set(ext.id, {
+          id: ext.id,
+          path: ext.path,
+          name: ext.name,
+          version: ext.version,
+          description: typeof manifest['description'] === 'string' ? manifest['description'] : undefined,
+          manifest,
+          iconRel: pickIcon(manifest),
+          installedAt: Date.now(),
+          enabled: true,
+        });
+        writeState();
+        notifyChanged();
+        console.log('[extensions] auto-registered extension via session event:', ext.name, ext.id);
+      }
+    } catch (err) {
+      console.warn('[extensions] extension-loaded handler failed:', err);
+    }
+  });
+
+  // —— electron-chrome-web-store：让用户在 Chrome Web Store 网站直接点「添加到 Chrome」安装，
+  // 并提供每 5 小时自动更新。preload 注入后，CWS 页面的安装按钮会被接管。
+  //
+  // 关键协调：
+  // - extensionsPath 指向我们自己的 extensionsRoot()，避免两个并行安装目录。
+  // - loadExtensions:false —— 启动加载由我们的 loadAllEnabledOnBoot 负责（它遵循 enable/disable
+  //   状态；若让库也 loadAllExtensions 会加载所有扩展且忽略我们的禁用状态 → 冲突）。
+  // - autoUpdate:true —— 库负责把已装扩展更新到最新版（更新后会触发 session 的 extension-loaded）。
+  // - beforeInstall —— 同步我们的 installed 记录（CWS 网站安装走的不是我们的 IPC，需在此登记）。
+  try {
+    await installChromeWebStore({
+      session: ses,
+      extensionsPath: extensionsRoot(),
+      loadExtensions: false,
+      autoUpdate: true,
+      beforeInstall: async (details) => {
+        // CWS 网站点击安装 → 弹确认 Modal 让用户审核扩展信息 + 权限。
+        // details.icon 是 NativeImage，转 data URL 后才能跨 IPC 给 renderer。
+        const icon = details.icon as unknown as { toDataURL?: () => string; toPNG?: () => Buffer } | undefined;
+        let iconUrl: string | undefined;
+        try {
+          if (icon?.toDataURL) iconUrl = icon.toDataURL();
+          else if (icon?.toPNG) iconUrl = `data:image/png;base64,${icon.toPNG().toString('base64')}`;
+        } catch (_) { /* 图标转换失败不阻塞安装 */ }
+        const manifest = details.manifest as Record<string, unknown>;
+        const payload: InstallConfirmPayload = {
+          id: details.id,
+          name: details.localizedName,
+          version: typeof manifest['version'] === 'string' ? manifest['version'] : '',
+          description: typeof manifest['description'] === 'string' ? manifest['description'] : undefined,
+          iconUrl,
+          permissions: extractPermissions(manifest),
+        };
+        const allowed = await requestRendererInstallConfirm(payload);
+        return { action: allowed ? 'allow' : 'deny' };
+      },
+    });
+    console.log('[extensions] electron-chrome-web-store enabled (click-to-install on CWS + auto-update)');
+  } catch (e) {
+    console.warn('[extensions] electron-chrome-web-store init failed:', e);
+  }
+
+  // 把 view 生命周期桥接到扩展宿主（避免 viewManager ↔ extensions 循环依赖）
+  setViewLifecycleHooks({
+    onViewCreated: (tabId) => registerTabToHost(tabId),
+    onViewDestroyed: (tabId) => unregisterTabFromHost(tabId),
+    onCurrentTabChanged: (tabId) => selectTabInHost(tabId),
+  });
+}
+
+/**
+ * 注册一个标签给扩展宿主（扩展的 tabs/contextMenus 等 API 依赖此注册）。
+ * 在 viewManager 创建 view 后调用。幂等。
+ */
+export function registerTabToHost(tabId: string): void {
+  if (!extensionHost) return;
+  const wc = getWebContents(tabId);
+  const win = getMainWindow();
+  if (!wc || !win) return;
+  try {
+    extensionHost.addTab(wc, win);
+  } catch (e) {
+    console.warn('[extensions] addTab failed for', tabId, e);
+  }
+}
+
+/** 注销标签（view 销毁时调用）。 */
+export function unregisterTabFromHost(tabId: string): void {
+  if (!extensionHost) return;
+  const wc = getWebContents(tabId);
+  if (!wc) return;
+  try {
+    extensionHost.removeTab(wc);
+  } catch (_) { /* 忽略 */ }
+}
+
+/** 标记某标签为活动（切到当前标签时调用）。 */
+export function selectTabInHost(tabId: string): void {
+  if (!extensionHost) return;
+  const wc = getWebContents(tabId);
+  if (!wc) return;
+  try {
+    extensionHost.selectTab(wc);
+  } catch (_) { /* 忽略 */ }
+}
+
+/** 获取宿主实例（供 index.ts 注册 crx:// 协议等）。 */
+export function getExtensionHost(): ElectronChromeExtensions | null {
+  return extensionHost;
 }
 
 /** 读图标为 base64 data URL（缓存）；无图标或读失败返回 undefined。 */
@@ -346,6 +588,13 @@ async function getIcon(id: string): Promise<string | undefined> {
  * 3b) extension-abort-staged(stageId)：用户取消 → 删除临时目录。
  */
 export function loadExtensionEvents(): void {
+  // 内部页（如 zot://settings）请求打开另一个内部页（如 zot://extensions）：
+  // 内部页与主 UI 不在同一 webContents，需经主进程转发给主 UI 开新标签。
+  ipcMain.on('open-internal-url', (_e, url: string) => {
+    if (typeof url !== 'string' || !url) return;
+    getUiView()?.webContents.send('open-url-in-new-tab', url);
+  });
+
   // —— 列表：返回内存中的快照（含 manifest 等）——
   ipcMain.handle('extension-list', (): InstalledExtension[] => {
     return Array.from(installed.values());

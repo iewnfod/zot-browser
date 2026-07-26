@@ -4,7 +4,6 @@ import {
   CardBody,
   Chip,
   Divider,
-  Input,
   Modal,
   ModalBody,
   ModalContent,
@@ -68,10 +67,6 @@ export default function ExtensionsApp() {
     permissions: ExtensionPermissions;
     installing: boolean;
   } | null>(null);
-  // —— Web Store ID 输入弹框 ——
-  const [storeOpen, setStoreOpen] = useState(false);
-  const [storeInput, setStoreInput] = useState('');
-  const [storeBusy, setStoreBusy] = useState(false);
   // —— 顶部安装中（unpacked/zip）——
   const [picking, setPicking] = useState<'unpacked' | 'zip' | null>(null);
   // —— 顶部错误/提示横幅 ——
@@ -158,20 +153,6 @@ export default function ExtensionsApp() {
     }
   }, [pickSource]);
 
-  const onInstallFromStore = useCallback(async () => {
-    const id = storeInput.trim();
-    if (!id) return;
-    setStoreBusy(true);
-    try {
-      await pickSource('crx', id);
-      // 若弹出了审核框则关闭 store 输入框
-      setStoreOpen(false);
-      setStoreInput('');
-    } finally {
-      setStoreBusy(false);
-    }
-  }, [pickSource, storeInput]);
-
   // —— 第 3a 步：审核通过 → confirmInstall ——
   const confirmInstall = useCallback(async () => {
     if (!review) return;
@@ -251,7 +232,7 @@ export default function ExtensionsApp() {
                   )
                 }
                 onPress={onInstallUnpacked}
-                isDisabled={picking !== null || storeBusy || review !== null}
+                isDisabled={picking !== null || review !== null}
               >
                 {t('extensions.installUnpacked')}
               </Button>
@@ -263,7 +244,7 @@ export default function ExtensionsApp() {
                   picking === 'zip' ? <LuLoaderCircle className="animate-spin" /> : <LuUpload />
                 }
                 onPress={onInstallZip}
-                isDisabled={picking !== null || storeBusy || review !== null}
+                isDisabled={picking !== null || review !== null}
               >
                 {t('extensions.installZip')}
               </Button>
@@ -272,13 +253,13 @@ export default function ExtensionsApp() {
                 color="primary"
                 variant="flat"
                 startContent={<LuStore />}
-                onPress={() => setStoreOpen(true)}
-                isDisabled={picking !== null || storeBusy || review !== null}
+                onPress={() => window.electron.ipcRenderer.send('open-internal-url', 'https://chromewebstore.google.com/')}
+                isDisabled={picking !== null || review !== null}
               >
                 {t('extensions.installStore')}
               </Button>
             </div>
-            <p className="text-xs text-default-400">{t('extensions.storeExperimental')}</p>
+            <p className="text-xs text-default-400">{t('extensions.storeHint')}</p>
           </CardBody>
         </Card>
 
@@ -332,44 +313,6 @@ export default function ExtensionsApp() {
         onConfirm={confirmInstall}
         onCancel={cancelReview}
       />
-
-      {/* Web Store ID 输入弹框 */}
-      <Modal isOpen={storeOpen} onClose={() => setStoreOpen(false)} size="sm">
-        <ModalContent>
-          {(close) => (
-            <>
-              <ModalHeader>{t('extensions.installStore')}</ModalHeader>
-              <ModalBody>
-                <Input
-                  autoFocus
-                  size="sm"
-                  value={storeInput}
-                  onValueChange={setStoreInput}
-                  placeholder={t('extensions.installStorePlaceholder')}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') onInstallFromStore();
-                  }}
-                />
-                <p className="text-xs text-default-400">{t('extensions.storeExperimental')}</p>
-              </ModalBody>
-              <ModalFooter>
-                <Button size="sm" variant="light" onPress={close}>
-                  {t('extensions.storeCancel')}
-                </Button>
-                <Button
-                  size="sm"
-                  color="primary"
-                  isDisabled={!storeInput.trim() || storeBusy}
-                  isLoading={storeBusy}
-                  onPress={onInstallFromStore}
-                >
-                  {t('extensions.storeAdd')}
-                </Button>
-              </ModalFooter>
-            </>
-          )}
-        </ModalContent>
-      </Modal>
     </div>
   );
 }

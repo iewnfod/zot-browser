@@ -1,5 +1,6 @@
-import { Card, CardBody, Divider, Input, Select, SelectItem, Switch } from '@heroui/react';
+import { Button, Card, CardBody, Divider, Input, Select, SelectItem, Switch } from '@heroui/react';
 import { useEffect, useState } from 'react';
+import { LuPuzzle } from 'react-icons/lu';
 import { getDefaultSettings, resolveUISize, Settings, UISize } from '@renderer/lib/settings';
 import { DEFAULT_LOCALE, Locale, resolveLocale } from '@renderer/lib/i18n';
 import { useT } from '@renderer/lib/useT';
@@ -241,6 +242,28 @@ export default function SettingsApp() {
                 onBlur={commitClearInterval}
                 onKeyDown={(e) => { if (e.key === 'Enter') commitClearInterval(); }}
               />
+            </Row>
+          </CardBody>
+        </Card>
+
+        {/* 扩展 */}
+        <Card shadow="sm">
+          <CardBody className="p-5 flex flex-col gap-4">
+            <h2 className="text-base font-semibold">{t('settings.extensions')}</h2>
+            <Divider />
+            <Row
+              title={t('settings.extensions')}
+              description={t('settings.extensionsDesc')}
+            >
+              <Button
+                size="sm"
+                color="primary"
+                variant="flat"
+                startContent={<LuPuzzle />}
+                onPress={() => window.electron.ipcRenderer.send('open-internal-url', 'zot://extensions')}
+              >
+                {t('settings.openExtensions')}
+              </Button>
             </Row>
           </CardBody>
         </Card>

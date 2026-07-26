@@ -1,5 +1,5 @@
 appId: com.electron.app
-productName: zot-browser
+productName: Zot Browser
 directories:
   buildResources: build
 files:
