@@ -35,6 +35,8 @@ export interface InstalledExtension {
   installedAt: number;
   /** 是否启用。 */
   enabled: boolean;
+  /** 是否固定显示在侧栏工具栏（reload 按钮右侧）。 */
+  pinned?: boolean;
 }
 
 /** store['extensions'] 的形态。 */
@@ -160,4 +162,34 @@ export type InstallResult =
 /** store['extensions'] 缺失时的兜底空状态。 */
 export function getDefaultExtensionsState(): ExtensionsState {
   return { list: [] };
+}
+
+/**
+ * 从扩展 manifest 中提取点击图标时应打开的页面 URL。
+ * 优先级：popup > options page。无合适页面返回 null。
+ */
+export function getExtensionPageUrl(ext: InstalledExtension): string | null {
+  const m = ext.manifest;
+  // MV3 action.default_popup
+  const action = m['action'];
+  if (action && typeof action === 'object') {
+    const popup = (action as Record<string, unknown>)['default_popup'];
+    if (typeof popup === 'string') return `chrome-extension://${ext.id}/${popup}`;
+  }
+  // MV2 browser_action.default_popup
+  const ba = m['browser_action'];
+  if (ba && typeof ba === 'object') {
+    const popup = (ba as Record<string, unknown>)['default_popup'];
+    if (typeof popup === 'string') return `chrome-extension://${ext.id}/${popup}`;
+  }
+  // MV3 options_ui.page
+  const oui = m['options_ui'];
+  if (oui && typeof oui === 'object') {
+    const page = (oui as Record<string, unknown>)['page'];
+    if (typeof page === 'string') return `chrome-extension://${ext.id}/${page}`;
+  }
+  // MV2 options_page
+  const op = m['options_page'];
+  if (typeof op === 'string') return `chrome-extension://${ext.id}/${op}`;
+  return null;
 }

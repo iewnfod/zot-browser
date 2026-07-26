@@ -73,6 +73,7 @@ const api = {
   extensionDisable: (id: string) => ipcRenderer.invoke('extension-disable', id),
   extensionUninstall: (id: string) => ipcRenderer.invoke('extension-uninstall', id),
   extensionGetIcon: (id: string) => ipcRenderer.invoke('extension-get-icon', id),
+  extensionSetPinned: (id: string, pinned: boolean) => ipcRenderer.invoke('extension-set-pinned', id, pinned),
 };
 
 const storeApi = {

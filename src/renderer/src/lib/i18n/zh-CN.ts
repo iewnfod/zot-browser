@@ -171,6 +171,8 @@ export const zhCNMessages: Record<MessageKey, string> = {
   'extensions.errorCancelled': '已取消安装。',
   'extensions.errorGeneric': '安装失败。',
   'extensions.errorAction': '操作失败。',
+  'extensions.pin': '固定到工具栏',
+  'extensions.unpin': '取消固定',
 
   // 下载页
   'downloads.title': '下载',

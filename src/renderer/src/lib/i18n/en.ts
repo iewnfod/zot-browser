@@ -172,6 +172,8 @@ export const enMessages = {
   'extensions.errorCancelled': 'Installation cancelled.',
   'extensions.errorGeneric': 'Installation failed.',
   'extensions.errorAction': 'Action failed.',
+  'extensions.pin': 'Pin to toolbar',
+  'extensions.unpin': 'Unpin from toolbar',
 
   // 下载页（DownloadsApp.tsx）
   'downloads.title': 'Downloads',

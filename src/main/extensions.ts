@@ -218,6 +218,7 @@ async function copyAndRegister(srcDir: string, targetPath: string): Promise<Inst
     iconRel: pickIcon(manifest),
     installedAt: Date.now(),
     enabled: true,
+    pinned: false,
   };
   installed.set(record.id, record);
   writeState();
@@ -457,6 +458,7 @@ export async function initExtensionHost(): Promise<void> {
           iconRel: pickIcon(manifest),
           installedAt: Date.now(),
           enabled: true,
+          pinned: false,
         });
         writeState();
         notifyChanged();
@@ -670,6 +672,16 @@ export function loadExtensionEvents(): void {
 
   // —— 图标：返回 data URL 或 undefined ——
   ipcMain.handle('extension-get-icon', (_e, id: string) => getIcon(id));
+
+  // —— 固定显示：在侧栏工具栏（reload 右侧）显示/隐藏扩展图标 ——
+  ipcMain.handle('extension-set-pinned', (_e, id: string, pinned: boolean): boolean => {
+    const rec = installed.get(id);
+    if (!rec) return false;
+    rec.pinned = pinned;
+    writeState();
+    notifyChanged();
+    return true;
+  });
 }
 
 /** 第 1 步 pick-source 的返回类型。 */

@@ -19,6 +19,7 @@ import {
   LuChevronUp,
   LuFolderOpen,
   LuLoaderCircle,
+  LuPin,
   LuPuzzle,
   LuShieldAlert,
   LuStore,
@@ -208,6 +209,20 @@ export default function ExtensionsApp() {
     [markBusy, t]
   );
 
+  const onTogglePin = useCallback(
+    async (ext: InstalledExtension) => {
+      markBusy(ext.id, true);
+      try {
+        const next = !ext.pinned;
+        const ok = await window.api.extensionSetPinned(ext.id, next);
+        if (!ok) setBanner({ kind: 'error', text: t('extensions.errorAction') });
+      } finally {
+        markBusy(ext.id, false);
+      }
+    },
+    [markBusy, t]
+  );
+
   return (
     <div className="w-screen h-screen overflow-auto bg-neutral-50">
       <div className="max-w-3xl mx-auto p-8 flex flex-col gap-6">
@@ -298,6 +313,7 @@ export default function ExtensionsApp() {
                 busy={busyIds.has(ext.id)}
                 onToggle={(next) => toggleEnabled(ext, next)}
                 onUninstall={() => onUninstall(ext)}
+                onTogglePin={() => onTogglePin(ext)}
               />
             ))}
           </div>
@@ -324,12 +340,14 @@ function ExtensionRow({
   busy,
   onToggle,
   onUninstall,
+  onTogglePin,
 }: {
   ext: InstalledExtension;
   icon?: string;
   busy: boolean;
   onToggle: (next: boolean) => void;
   onUninstall: () => void;
+  onTogglePin: () => void;
 }) {
   const locale = useLocale();
   const t = useT(locale);
@@ -382,6 +400,19 @@ function ExtensionRow({
               onValueChange={onToggle}
               aria-label={ext.enabled ? t('extensions.disable') : t('extensions.enable')}
             />
+            <Tooltip content={ext.pinned ? t('extensions.unpin') : t('extensions.pin')} size="sm" placement="top">
+              <Button
+                isIconOnly
+                size="sm"
+                variant={ext.pinned ? 'flat' : 'light'}
+                color={ext.pinned ? 'primary' : 'default'}
+                isDisabled={busy}
+                onPress={onTogglePin}
+                aria-label={ext.pinned ? t('extensions.unpin') : t('extensions.pin')}
+              >
+                <LuPin />
+              </Button>
+            </Tooltip>
             <Tooltip content={t('extensions.uninstall')} size="sm" placement="top">
               <Button
                 isIconOnly

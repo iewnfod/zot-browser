@@ -25,10 +25,12 @@ import { Tab } from '@renderer/lib/tab';
 import FavoriteTabCard from '@renderer/components/FavoriteTabCard';
 import TabRow from '@renderer/components/TabRow';
 import { isMac } from '@react-aria/utils';
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, useCallback, useEffect, useState } from 'react';
 import { Space } from '@renderer/lib/space';
 import { getUISizePrefs, UISize } from '@renderer/lib/settings';
 import type { TFunction } from '@renderer/lib/i18n';
+import type { InstalledExtension } from '@renderer/lib/extensions';
+import { getExtensionPageUrl } from '@renderer/lib/extensions';
 
 /** 进行中下载快照（与 preload/index.d.ts 的 DownloadProgressPayload 对齐）。 */
 interface ActiveDownloadSnapshot {
@@ -120,6 +122,40 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
 
   // sidebar 全部元素的尺寸：档位 → (Button size, 图标像素, Space 行图标/文字, ...)
   const { button: iconBtnSize, icon: iconPx, spaceIcon: spaceIconPx, text: spaceTextClass } = getUISizePrefs(uiSize);
+
+  // —— 固定扩展（侧栏工具栏 reload 右侧显示）——
+  const [pinnedExtensions, setPinnedExtensions] = useState<InstalledExtension[]>([]);
+  const [extIcons, setExtIcons] = useState<Record<string, string>>({});
+
+  const refreshPinnedExtensions = useCallback(async () => {
+    const items = await window.api.extensionList();
+    const pinned = items.filter((it) => it.pinned);
+    setPinnedExtensions(pinned);
+    // 并发拉图标
+    const entries = await Promise.all(
+      pinned.map(async (it) => {
+        const url = await window.api.extensionGetIcon(it.id);
+        return [it.id, url] as const;
+      })
+    );
+    const map: Record<string, string> = {};
+    for (const [id, url] of entries) if (url) map[id] = url;
+    setExtIcons(map);
+  }, []);
+
+  useEffect(() => {
+    refreshPinnedExtensions();
+  }, [refreshPinnedExtensions]);
+
+  useEffect(() => {
+    const handler = (): void => {
+      refreshPinnedExtensions();
+    };
+    window.electron.ipcRenderer.on('extensions-changed', handler);
+    return () => {
+      window.electron.ipcRenderer.removeAllListeners('extensions-changed');
+    };
+  }, [refreshPinnedExtensions]);
 
   // 下载按钮的综合进度：多个进行中下载时把 received/total 求和算总进度。
   // total 未知（=0）的下载不计入分母，但若全部未知则用 indeterminate（旋转）态。
@@ -282,7 +318,35 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
               <LuRotateCw size={iconPx}/>
             </Button>
 
-            {/* Plugins */}
+            {/* 固定显示的扩展图标 */}
+            {pinnedExtensions.map((ext) => {
+              const pageUrl = getExtensionPageUrl(ext);
+              const handleExtClick = () => {
+                if (pageUrl) {
+                  window.electron.ipcRenderer.send('open-internal-url', pageUrl);
+                } else {
+                  // 无 popup/options page → 回退到扩展管理页
+                  openExtensions();
+                }
+              };
+              return (
+                <Tooltip key={ext.id} content={ext.name} size="sm" placement="bottom">
+                  <Button
+                    variant="light"
+                    isIconOnly
+                    size={iconBtnSize}
+                    onPress={handleExtClick}
+                    aria-label={ext.name}
+                  >
+                    {extIcons[ext.id] ? (
+                      <img src={extIcons[ext.id]} alt="" style={{ width: iconPx, height: iconPx }} className="object-contain" />
+                    ) : (
+                      <LuPuzzle size={iconPx} />
+                    )}
+                  </Button>
+                </Tooltip>
+              );
+            })}
           </div>
         </div>
 

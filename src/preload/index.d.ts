@@ -107,6 +107,7 @@ declare global {
       extensionDisable: (id: string) => Promise<boolean>,
       extensionUninstall: (id: string) => Promise<boolean>,
       extensionGetIcon: (id: string) => Promise<string | undefined>,
+      extensionSetPinned: (id: string, pinned: boolean) => Promise<boolean>,
     },
     store: {
       get: (key: string) => Promise<any>,
