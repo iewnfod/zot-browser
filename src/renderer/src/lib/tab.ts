@@ -14,6 +14,11 @@ export interface Tab {
   spaceId?: string;
   isMediaPlaying?: boolean;
   lastMediaPlayed?: number;
+  /**
+   * 用户自定义名称。一旦设置（非空字符串），始终优先于网页标题作为显示名，
+   * 且不会被页面 title 事件覆盖。设置回空串即恢复"跟随网页标题"。
+   */
+  customName?: string;
   // 由主进程 WebContentsView 事件维护（不序列化）
   canGoBack?: boolean;
   canGoForward?: boolean;
@@ -32,6 +37,14 @@ export interface SerializableTab {
   spaceId?: string;
   isMediaPlaying?: boolean;
   lastMediaPlayed?: number;
+  customName?: string;
+}
+
+/**
+ * 取标签页的显示名称：自定义名称优先，否则回落到网页标题，再回落到 url。
+ */
+export function getTabDisplayName(tab: Tab): string {
+  return tab.customName || tab.name || tab.url;
 }
 
 export function upgradeTabToPinnedTab(tab: Tab): Tab {
@@ -72,6 +85,7 @@ export function serializeTab(tab: Tab): SerializableTab {
     spaceId: tab.spaceId,
     isMediaPlaying: tab.isMediaPlaying,
     lastMediaPlayed: tab.lastMediaPlayed,
+    customName: tab.customName,
   };
 }
 
@@ -90,6 +104,7 @@ export function deserializeTab(tab: SerializableTab): Tab {
     spaceId: tab.spaceId,
     isMediaPlaying: tab.isMediaPlaying || false,
     lastMediaPlayed: tab.lastMediaPlayed,
+    customName: tab.customName,
   };
 }
 

@@ -1,4 +1,4 @@
-import { Tab } from '@renderer/lib/tab';
+import { getTabDisplayName, Tab } from '@renderer/lib/tab';
 import { Button, ButtonGroup } from '@heroui/react';
 import { LuMinus, LuSquareDashed, LuX } from 'react-icons/lu';
 import { getUISizePrefs, UISize } from '@renderer/lib/settings';
@@ -65,7 +65,7 @@ export default function TabRow({
           duration-300 ease-in-out transition-all
           ${render ? 'text-neutral-950' : 'text-neutral-500'}
         `}>
-          {tab.name || tab.url}
+          {getTabDisplayName(tab)}
         </p>
       </Button>
       {

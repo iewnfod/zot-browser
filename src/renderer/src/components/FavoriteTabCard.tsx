@@ -1,4 +1,4 @@
-import { Tab } from '@renderer/lib/tab';
+import { getTabDisplayName, Tab } from '@renderer/lib/tab';
 import { Card, CardBody, Tooltip } from '@heroui/react';
 
 export default function FavoriteTabCard({
@@ -7,7 +7,7 @@ export default function FavoriteTabCard({
   tab: Tab
 }) {
   return (
-    <Tooltip title={tab.name || tab.url}>
+    <Tooltip title={getTabDisplayName(tab)}>
       <Card>
         <CardBody>
           <img src={tab.favicon} alt=""/>

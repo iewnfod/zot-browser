@@ -9,12 +9,13 @@ import { getDefaultSettings, resolveUISize, Settings } from '@renderer/lib/setti
 import ResizeSidebarDivider from '@renderer/components/ResizeSidebarDivider';
 import InSecureHttpsCertificateModal from '@renderer/components/modals/InSecureHttpsCertificateModal';
 import useEditTabModal from '@renderer/components/modals/EditTabModal';
+import useRenameTabModal from '@renderer/components/modals/RenameTabModal';
 import { useBrowserState } from '@renderer/hooks/BrowserState';
 import { useViews } from '@renderer/hooks/useViews';
 import { useWebUIState, WebContextMenuParams } from '@renderer/lib/useWebUIState';
 import ContextMenu, { ContextMenuItem } from '@renderer/components/ContextMenu';
 import { Tab } from '@renderer/lib/tab';
-import { LuArrowLeft, LuArrowRight, LuClipboard, LuCopy, LuEye, LuImage, LuLink2, LuPin, LuRotateCw, LuScissors, LuSquareAsterisk, LuTrash2, LuType, LuX } from 'react-icons/lu';
+import { LuArrowLeft, LuArrowRight, LuClipboard, LuCopy, LuEye, LuImage, LuLink2, LuPencilLine, LuPin, LuRotateCw, LuScissors, LuSquareAsterisk, LuTrash2, LuType, LuX } from 'react-icons/lu';
 
 function App() {
   // browser
@@ -179,6 +180,20 @@ function App() {
   const [openEditTabModal, setEditTabModalContent, EditTabModal] = useEditTabModal(handleEditCurrentTab, undefined, resolveUISize(settings));
   const [openNewTabModal, NewTabModal] = useNewTabModal(createTab, resolveUISize(settings));
 
+  // 记录当前正在重命名的 tab id（通过 ref，避免 onConfirm 闭包读到旧值）。
+  // 留空提交即清除自定义名称 → 恢复跟随网页标题。
+  const renameTargetTabIdRef = useRef<string | null>(null);
+  const handleRenameConfirm = useCallback((name: string) => {
+    const tabId = renameTargetTabIdRef.current;
+    if (!tabId) return;
+    updateTab(tabId, { customName: name });
+    renameTargetTabIdRef.current = null;
+  }, [updateTab]);
+  const [openRenameTabModal, setRenameInitialValue, RenameTabModal] = useRenameTabModal(
+    handleRenameConfirm,
+    resolveUISize(settings)
+  );
+
   function handleOpenEditTabModal(content: string) {
     setEditTabModalContent(content);
     openEditTabModal();
@@ -202,6 +217,10 @@ function App() {
   }
 
   function handleTitleUpdate(title: string, tabId: string) {
+    // 若用户已设置自定义名称（customName 非空），则始终保持自定义名称，
+    // 网页 title 事件不再覆盖显示名。
+    const tab = browser.tabs[tabId];
+    if (tab?.customName) return;
     updateTab(tabId, { name: title });
   }
 
@@ -323,6 +342,21 @@ function App() {
       startContent: <LuPin size={15} />,
       onAction: () => (t.isPinned ? unpinTab(t.id) : pinTab(t.id))
     });
+    // 仅 pinned 标签允许重命名：设置 customName 后始终保持自定义名称，
+    // 不再被网页 title 事件覆盖。已设置时菜单项显示为 Edit name。
+    if (t.isPinned) {
+      items.push({
+        key: 'rename',
+        label: t.customName ? 'Edit name' : 'Rename',
+        startContent: <LuPencilLine size={15} />,
+        onAction: () => {
+          renameTargetTabIdRef.current = t.id;
+          // 初始值优先用已有的自定义名称，否则用网页标题
+          setRenameInitialValue(t.customName || t.name || '');
+          openRenameTabModal();
+        }
+      });
+    }
     items.push({
       key: 'select',
       label: 'Select',
@@ -339,7 +373,7 @@ function App() {
       onAction: () => closeTab(t.id)
     });
     return items;
-  }, [tabContextMenu, currentTab, pinTab, unpinTab, selectTab, closeTab]);
+  }, [tabContextMenu, currentTab, pinTab, unpinTab, selectTab, closeTab, openRenameTabModal, setRenameInitialValue]);
 
   // —— 网页内右键菜单项（按上下文动态显隐）——
   const webContextMenuItems: ContextMenuItem[] = useMemo(() => {
@@ -518,6 +552,7 @@ function App() {
       <InSecureHttpsCertificateModal/>
       {EditTabModal}
       {NewTabModal}
+      {RenameTabModal}
 
       {/* 标签右键菜单 */}
       <ContextMenu
