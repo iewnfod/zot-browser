@@ -10,6 +10,7 @@ import { loadWebContentEvents } from './webcontent';
 import { loadStoreEvents } from './storage';
 import { initViewManager, setUiView } from './viewManager';
 import { loadDownloadEvents } from './download';
+import { loadExtensionEvents, loadAllEnabledOnBoot } from './extensions';
 import { localeFromTag, type Locale } from '../renderer/src/lib/i18n';
 
 // Linux 下强制 X11（XWayland），保证透明窗口可用。
@@ -112,7 +113,7 @@ function createUiView(mainWindow: BrowserWindow): WebContentsView {
   return uiView;
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   electronApp.setAppUserModelId('com.iewnfod.zot-browser');
 
   loadWebContentEvents();
@@ -123,6 +124,11 @@ app.whenReady().then(() => {
   loadStoreEvents();
   // 下载管理：监听网页触发的下载（partition 级）+ 暴露控制 IPC
   loadDownloadEvents();
+
+  // 扩展系统：注册 IPC，并在首个网页 view 创建前加载已启用扩展，
+  // 使其 content_scripts 能注入到 partition 下后续创建的所有网页 view。
+  loadExtensionEvents();
+  await loadAllEnabledOnBoot();
 
   ipcMain.handle('scale-factor', () => {
     return screen.getPrimaryDisplay().scaleFactor;

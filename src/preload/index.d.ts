@@ -1,5 +1,11 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import type { Locale } from '../renderer/src/lib/i18n'
+import type {
+  InstalledExtension,
+  InstallResult,
+  ParsedExtension,
+  ExtensionPermissions,
+} from '../renderer/src/lib/extensions'
 
 /** 主进程 → UI 的下载进度推送载荷（与 src/main/download.ts 保持一致）。 */
 export interface DownloadProgressPayload {
@@ -86,6 +92,21 @@ declare global {
       downloadGetActive: () => Promise<DownloadProgressPayload[]>,
       downloadGetHistory: (limit?: number) => Promise<DownloadHistoryItem[]>,
       downloadCheckFiles: (savePaths: string[]) => Promise<string[]>,
+      // 扩展（插件）管理（主进程 extensions.ts）
+      extensionList: () => Promise<InstalledExtension[]>,
+      extensionPickSource: (
+        source: 'unpacked' | 'zip' | 'crx',
+        sourceData?: string
+      ) => Promise<
+        | { ok: true; stageId: string; parsed: ParsedExtension; permissions: ExtensionPermissions }
+        | { ok: false; error: string }
+      >,
+      extensionConfirmInstall: (stageId: string) => Promise<InstallResult>,
+      extensionAbortStaged: (stageId: string) => Promise<void>,
+      extensionEnable: (id: string) => Promise<boolean>,
+      extensionDisable: (id: string) => Promise<boolean>,
+      extensionUninstall: (id: string) => Promise<boolean>,
+      extensionGetIcon: (id: string) => Promise<string | undefined>,
     },
     store: {
       get: (key: string) => Promise<any>,

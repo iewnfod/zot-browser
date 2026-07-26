@@ -61,6 +61,18 @@ const api = {
   downloadGetHistory: (limit?: number) => ipcRenderer.invoke('download-get-history', limit),
   // 批量检查文件是否存在（UI 据此隐藏「打开 / 在文件夹中显示」按钮）
   downloadCheckFiles: (savePaths: string[]) => ipcRenderer.invoke('download-check-files', savePaths),
+  // 扩展（插件）管理（主进程 extensions.ts）。复用 Electron 原生 session.loadExtension。
+  // 三步安装流程支持 Chrome 风格的安装前权限审核：
+  //   pickSource → （用户审核权限）→ confirmInstall / abortStaged
+  extensionList: () => ipcRenderer.invoke('extension-list'),
+  extensionPickSource: (source: 'unpacked' | 'zip' | 'crx', sourceData?: string) =>
+    ipcRenderer.invoke('extension-pick-source', source, sourceData),
+  extensionConfirmInstall: (stageId: string) => ipcRenderer.invoke('extension-confirm-install', stageId),
+  extensionAbortStaged: (stageId: string) => ipcRenderer.invoke('extension-abort-staged', stageId),
+  extensionEnable: (id: string) => ipcRenderer.invoke('extension-enable', id),
+  extensionDisable: (id: string) => ipcRenderer.invoke('extension-disable', id),
+  extensionUninstall: (id: string) => ipcRenderer.invoke('extension-uninstall', id),
+  extensionGetIcon: (id: string) => ipcRenderer.invoke('extension-get-icon', id),
 };
 
 const storeApi = {
