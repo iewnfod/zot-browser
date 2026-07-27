@@ -18,7 +18,8 @@ import { useViews } from '@renderer/hooks/useViews';
 import { useWebUIState, WebContextMenuParams } from '@renderer/lib/useWebUIState';
 import ContextMenu, { ContextMenuItem } from '@renderer/components/ContextMenu';
 import { Tab } from '@renderer/lib/tab';
-import { LuArrowLeft, LuArrowRight, LuClipboard, LuCopy, LuEye, LuImage, LuLink2, LuPencilLine, LuPin, LuRotateCw, LuScissors, LuSquareAsterisk, LuTrash2, LuType, LuX } from 'react-icons/lu';
+import { InstalledExtension, getExtensionOptionsUrl } from '@renderer/lib/extensions';
+import { LuArrowLeft, LuArrowRight, LuClipboard, LuCopy, LuEye, LuImage, LuLink2, LuPencilLine, LuPin, LuPuzzle, LuRotateCw, LuScissors, LuSquareAsterisk, LuTrash2, LuType, LuX } from 'react-icons/lu';
 
 /** 进行中下载快照（与 preload/index.d.ts 的 DownloadProgressPayload 对齐）。 */
 interface ActiveDownloadSnapshot {
@@ -81,6 +82,18 @@ function App() {
   const webUI = useWebUIState(browser.currentTabId);
   // 标签右键菜单状态：{ tab, x, y }，null 表示关闭
   const [tabContextMenu, setTabContextMenu] = useState<{ tab: Tab; x: number; y: number } | null>(null);
+
+  // —— 扩展 popup 浮层状态 ——
+  // popup 由主进程 WebContentsView 渲染（chrome-extension://<id>/popup.html），浮在 UI 之上。
+  // anchor 是图标按钮的 UI 坐标 {left, bottom}。rect 为主进程测量回调回传的实测矩形（UI 可据此画阴影装饰）。
+  const [popupState, setPopupState] = useState<{
+    extId: string;
+    url: string;
+    anchor: { x: number; y: number };
+    rect?: { x: number; y: number; width: number; height: number };
+  } | null>(null);
+  // 扩展图标右键菜单状态：{ ext, x, y }，null 表示关闭
+  const [extContextMenu, setExtContextMenu] = useState<{ ext: InstalledExtension; x: number; y: number } | null>(null);
 
 
   // menu
@@ -453,7 +466,7 @@ function App() {
   // 阻断网页输入转发：模态框（dialog）或右键菜单打开时，
   // 通知主进程停止把输入事件转发给下层网页 view，避免"同时点到菜单和网页"。
   // 右键菜单由 React 状态驱动（即时）；dialog 由第三方组件挂载，用 MutationObserver 兜底。
-  const menusOpen = !!tabContextMenu || !!webUI.contextMenu;
+  const menusOpen = !!tabContextMenu || !!webUI.contextMenu || !!popupState;
   useEffect(() => {
     // 右键菜单打开 → 必然阻断；关闭 → 退回按 dialog 实际状态决定
     if (menusOpen) {
@@ -490,6 +503,78 @@ function App() {
     onContextMenu: (params: WebContextMenuParams) =>
       webUI.setContextMenu({ tabId: browser.currentTabId ?? '', x: params.x, y: params.y, params })
   });
+
+  // —— 扩展 popup 浮层：打开 / 关闭 ——
+  // 注意：不手动调 setModalOpen——menusOpen effect 已纳入 popupState，
+  // popup 打开 → setModalOpen(true)，关闭 → 回落到 dialog 实际状态（避免与其它 modal 冲突）。
+  const handleOpenExtensionPopup = useCallback((ext: InstalledExtension, url: string, anchor: { x: number; y: number }) => {
+    // 切换不同扩展前先关掉旧的（主进程 openPopup 内部也会处理，这里同步清状态）
+    setPopupState({ extId: ext.id, url, anchor });
+    window.api.popupOpen(ext.id, url, anchor);
+  }, []);
+  const handleCloseExtensionPopup = useCallback(() => {
+    window.api.popupClose();
+    setPopupState(null);
+  }, []);
+
+  // 主进程主动关闭 popup（窗口失焦等）→ 同步清状态
+  useEffect(() => {
+    const handler = (): void => { setPopupState(null); };
+    window.electron.ipcRenderer.on('popup-closed', handler);
+    return () => { window.electron.ipcRenderer.removeAllListeners('popup-closed'); };
+  }, []);
+
+  // 主进程测量回调回传实测矩形（供 UI 阴影装饰使用）
+  useEffect(() => {
+    const handler = (_e: unknown, rect: { x: number; y: number; width: number; height: number }): void => {
+      setPopupState((s) => (s ? { ...s, rect } : s));
+    };
+    window.electron.ipcRenderer.on('popup-measured', handler);
+    return () => { window.electron.ipcRenderer.removeAllListeners('popup-measured'); };
+  }, []);
+
+  // 切换标签 / 打开标签右键菜单时关闭 popup（避免遮挡）
+  useEffect(() => {
+    if (tabContextMenu || extContextMenu) handleCloseExtensionPopup();
+  }, [tabContextMenu, extContextMenu, handleCloseExtensionPopup]);
+
+  // Esc 关闭 popup
+  useEffect(() => {
+    if (!popupState) return;
+    const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') handleCloseExtensionPopup(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [popupState, handleCloseExtensionPopup]);
+
+  // —— 扩展右键菜单项（选项 / 取消固定 / 管理扩展）——
+  const extContextMenuItems: ContextMenuItem[] = useMemo(() => {
+    const ext = extContextMenu?.ext;
+    if (!ext) return [];
+    const items: ContextMenuItem[] = [];
+    const optionsUrl = getExtensionOptionsUrl(ext);
+    if (optionsUrl) {
+      items.push({
+        key: 'options',
+        label: t('context.extension.options'),
+        startContent: <LuPencilLine size={15} />,
+        onAction: () => { window.electron.ipcRenderer.send('open-internal-url', optionsUrl); }
+      });
+    }
+    items.push({
+      key: 'unpin',
+      label: t('context.extension.unpin'),
+      startContent: <LuPin size={15} />,
+      onAction: () => { window.api.extensionSetPinned(ext.id, false); }
+    });
+    items.push({ key: 'div1', divider: true });
+    items.push({
+      key: 'manage',
+      label: t('context.extension.manage'),
+      startContent: <LuPuzzle size={15} />,
+      onAction: () => { createTab('zot://extensions'); }
+    });
+    return items;
+  }, [t, extContextMenu, createTab]);
 
   // —— 标签右键菜单项（保持原有 固定/选择/关闭 三个动作，视觉规范化）——
   const tabContextMenuItems: ContextMenuItem[] = useMemo(() => {
@@ -684,6 +769,8 @@ function App() {
           showFullUrl={settings.showFullUrl}
           openSettings={() => createTab('zot://settings')}
           openExtensions={() => createTab('zot://extensions')}
+          onOpenExtensionPopup={handleOpenExtensionPopup}
+          onExtensionContextMenu={(e, ext) => setExtContextMenu({ ext, x: e.clientX, y: e.clientY })}
           openDownloads={() => createTab('zot://downloads')}
           activeDownloads={activeDownloads}
           recentDownloads={recentDownloads}
@@ -737,6 +824,40 @@ function App() {
         y={webUI.contextMenu?.y ?? 0}
         onClose={() => webUI.setContextMenu(null)}
         items={webContextMenuItems}
+      />
+
+      {/* 扩展 popup 浮层遮罩：透明全屏，点击外部 / 触发其它操作时关闭 popup。
+          实际 popup 内容由主进程 WebContentsView 渲染在 UI 之上，这里只负责捕获外部点击。
+          rect 用于按实测矩形画向内阴影装饰（中心穿透，不挡 popup 交互）。 */}
+      {popupState && (
+        <div
+          className="fixed inset-0 z-40"
+          onPointerDown={(e) => { e.preventDefault(); handleCloseExtensionPopup(); }}
+          aria-hidden
+        >
+          {popupState.rect && (
+            <div
+              className="absolute pointer-events-none"
+              style={{
+                left: popupState.rect.x,
+                top: popupState.rect.y,
+                width: popupState.rect.width,
+                height: popupState.rect.height,
+                boxShadow: '0 8px 24px rgba(0,0,0,0.22), 0 2px 6px rgba(0,0,0,0.18)',
+                borderRadius: 8
+              }}
+            />
+          )}
+        </div>
+      )}
+
+      {/* 扩展图标右键菜单 */}
+      <ContextMenu
+        open={!!extContextMenu}
+        x={extContextMenu?.x ?? 0}
+        y={extContextMenu?.y ?? 0}
+        onClose={() => setExtContextMenu(null)}
+        items={extContextMenuItems}
       />
     </div>
   );

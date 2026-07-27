@@ -15,6 +15,7 @@ import {
 } from '@heroui/react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  LuBug,
   LuChevronDown,
   LuChevronUp,
   LuFolderOpen,
@@ -31,6 +32,7 @@ import { useT } from '@renderer/lib/useT';
 import {
   extractPermissions,
   ExtensionPermissions,
+  getExtensionPopupUrl,
   InstalledExtension,
   ParsedExtension,
 } from '@renderer/lib/extensions';
@@ -356,6 +358,8 @@ function ExtensionRow({
   const perms = useMemo(() => extractPermissions(ext.manifest), [ext.manifest]);
   const hasPerms =
     perms.permissions.length + perms.hostPermissions.length + perms.contentScriptMatches.length > 0;
+  // 该扩展是否有 popup 页面（决定是否显示「检查 popup」按钮）
+  const popupUrl = useMemo(() => getExtensionPopupUrl(ext), [ext.manifest]);
 
   return (
     <Card shadow="sm">
@@ -413,6 +417,21 @@ function ExtensionRow({
                 <LuPin />
               </Button>
             </Tooltip>
+            {popupUrl && (
+              <Tooltip content={t('extensions.inspectPopup')} size="sm" placement="top">
+                <Button
+                  isIconOnly
+                  size="sm"
+                  variant="light"
+                  color="default"
+                  isDisabled={busy}
+                  onPress={() => window.api.popupOpenDevTools(ext.id, popupUrl)}
+                  aria-label={t('extensions.inspectPopup')}
+                >
+                  <LuBug />
+                </Button>
+              </Tooltip>
+            )}
             <Tooltip content={t('extensions.uninstall')} size="sm" placement="top">
               <Button
                 isIconOnly

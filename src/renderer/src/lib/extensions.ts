@@ -165,10 +165,11 @@ export function getDefaultExtensionsState(): ExtensionsState {
 }
 
 /**
- * 从扩展 manifest 中提取点击图标时应打开的页面 URL。
- * 优先级：popup > options page。无合适页面返回 null。
+ * 从扩展 manifest 中提取 popup 页面 URL（点击图标时弹出的浮层）。
+ * 仅看 action.default_popup (MV3) / browser_action.default_popup (MV2)。
+ * 无 popup 声明时返回 null（此时点击图标应无反应，遵循 Chrome 行为）。
  */
-export function getExtensionPageUrl(ext: InstalledExtension): string | null {
+export function getExtensionPopupUrl(ext: InstalledExtension): string | null {
   const m = ext.manifest;
   // MV3 action.default_popup
   const action = m['action'];
@@ -182,6 +183,16 @@ export function getExtensionPageUrl(ext: InstalledExtension): string | null {
     const popup = (ba as Record<string, unknown>)['default_popup'];
     if (typeof popup === 'string') return `chrome-extension://${ext.id}/${popup}`;
   }
+  return null;
+}
+
+/**
+ * 从扩展 manifest 中提取 options（选项）页 URL。
+ * 仅看 options_ui.page (MV3) / options_page (MV2)。无则返回 null。
+ * 用于扩展右键菜单的「选项」项。
+ */
+export function getExtensionOptionsUrl(ext: InstalledExtension): string | null {
+  const m = ext.manifest;
   // MV3 options_ui.page
   const oui = m['options_ui'];
   if (oui && typeof oui === 'object') {

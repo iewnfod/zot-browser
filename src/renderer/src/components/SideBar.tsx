@@ -30,7 +30,7 @@ import { Space } from '@renderer/lib/space';
 import { getUISizePrefs, UISize } from '@renderer/lib/settings';
 import type { TFunction } from '@renderer/lib/i18n';
 import type { InstalledExtension } from '@renderer/lib/extensions';
-import { getExtensionPageUrl } from '@renderer/lib/extensions';
+import { getExtensionPopupUrl } from '@renderer/lib/extensions';
 
 /** 进行中下载快照（与 preload/index.d.ts 的 DownloadProgressPayload 对齐）。 */
 interface ActiveDownloadSnapshot {
@@ -76,6 +76,10 @@ export interface BrowserSideBarProps {
   openSettings: () => void;
   /** 打开 zot://extensions 内部页 */
   openExtensions: () => void;
+  /** 点击固定扩展图标：有 popup → 在锚点下方弹浮层；无 popup 由上层决定（无反应）。anchor 为图标按钮 UI 坐标。 */
+  onOpenExtensionPopup: (ext: InstalledExtension, url: string, anchor: { x: number; y: number }) => void;
+  /** 固定扩展图标右键：上报原生事件 + 目标扩展，由上层渲染统一右键菜单（选项/取消固定/管理） */
+  onExtensionContextMenu: (e: React.MouseEvent, ext: InstalledExtension) => void;
   /** 打开 zot://downloads 内部页 */
   openDownloads: () => void;
   /** 进行中的下载（驱动按钮图标变为进度圈）。 */
@@ -112,6 +116,8 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
     showFullUrl,
     openSettings,
     openExtensions,
+    onOpenExtensionPopup,
+    onExtensionContextMenu,
     openDownloads,
     activeDownloads,
     recentDownloads,
@@ -126,6 +132,8 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
   // —— 固定扩展（侧栏工具栏 reload 右侧显示）——
   const [pinnedExtensions, setPinnedExtensions] = useState<InstalledExtension[]>([]);
   const [extIcons, setExtIcons] = useState<Record<string, string>>({});
+  // 各固定扩展图标按钮的 DOM 引用，用于点击时取锚点坐标定位 popup
+  const extBtnRefs = useRef<Record<string, HTMLButtonElement>>({});
 
   const refreshPinnedExtensions = useCallback(async () => {
     const items = await window.api.extensionList();
@@ -320,22 +328,25 @@ function BrowserSideBarContent(props: BrowserSideBarContentProps) {
 
             {/* 固定显示的扩展图标 */}
             {pinnedExtensions.map((ext) => {
-              const pageUrl = getExtensionPageUrl(ext);
-              const handleExtClick = () => {
-                if (pageUrl) {
-                  window.electron.ipcRenderer.send('open-internal-url', pageUrl);
-                } else {
-                  // 无 popup/options page → 回退到扩展管理页
-                  openExtensions();
-                }
-              };
+              const popupUrl = getExtensionPopupUrl(ext);
               return (
                 <Tooltip key={ext.id} content={ext.name} size="sm" placement="bottom">
                   <Button
+                    ref={(el: HTMLButtonElement | null) => {
+                      if (el) extBtnRefs.current[ext.id] = el;
+                      else delete extBtnRefs.current[ext.id];
+                    }}
                     variant="light"
                     isIconOnly
                     size={iconBtnSize}
-                    onPress={handleExtClick}
+                    onPress={() => {
+                      if (!popupUrl) return; // 无 popup 声明 → 无反应（Chrome 行为）
+                      const el = extBtnRefs.current[ext.id];
+                      if (!el) return;
+                      const r = el.getBoundingClientRect();
+                      onOpenExtensionPopup(ext, popupUrl, { x: r.left, y: r.bottom });
+                    }}
+                    onContextMenu={(e) => { e.preventDefault(); onExtensionContextMenu(e, ext); }}
                     aria-label={ext.name}
                   >
                     {extIcons[ext.id] ? (

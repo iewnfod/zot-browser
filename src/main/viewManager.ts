@@ -5,12 +5,21 @@ import { isInternalPageURL, isZotURL, resolveZotURL } from './zotProtocol';
 export const PARTITION = 'persist:shared-partition';
 const ZERO_RECT: Rectangle = { x: 0, y: 0, width: 0, height: 0 };
 
+// —— 扩展 popup 浮层的尺寸约束（Chromium preferredSize 回报后 clamp 到此区间）——
+const POPUP_MIN_W = 240;
+const POPUP_MAX_W = 800;
+const POPUP_MIN_H = 120;
+const POPUP_MAX_H = 600;
+
 // —— 扩展宿主生命周期钩子（由 extensions.ts 注册，避免循环依赖）——
 // viewManager 不直接 import extensions（那会成环），改为回调注入。
 interface ViewLifecycleHooks {
   onViewCreated?: (tabId: string) => void;   // view 创建并加入 Map 后
   onViewDestroyed?: (tabId: string) => void; // view 从 Map 移除前/后
   onCurrentTabChanged?: (tabId: string) => void; // 当前标签切换
+  /** 扩展 popup 打开前（loadURL 之前）调用：确保 MV3 service worker 已就绪。
+   *  返回 Promise，openPopup 会 await 它再加载 popup 内容，避免首条消息踩空窗口。 */
+  onPopupOpened?: (extId: string) => Promise<void>;
 }
 let lifecycleHooks: ViewLifecycleHooks = {};
 /** 由 extensions.ts 调用，注入扩展宿主对 view 生命周期的监听。 */
@@ -30,6 +39,16 @@ const views = new Map<string, ManagedView>();
 let currentTabId: string | null = null;
 let pageRect: Rectangle | null = null;
 let modalOpen = false;
+
+// —— 扩展 popup 浮层 ——
+// popup 是独立 WebContentsView，渲染 chrome-extension://<id>/popup.html。
+// 它浮在 UI view 之上（addChildView 顺序保证最上层），只占图标下方一小块矩形。
+// popup 打开期间 modalOpen=true，setupInputForwarding 把 popupRect 内的事件转发给 popup view。
+let popupView: WebContentsView | null = null;
+let popupRect: Rectangle | null = null;
+// popup 是否被「钉住」（「检查 popup」调试模式）：钉住后主窗口 blur 不会自动关闭它，
+// 否则 devtools 窗口一弹出就触发主窗口失焦 → popup 被销毁，无法调试。
+let popupPinned = false;
 
 /** 设置 UI view（React 前端所在，位于最上层）。 */
 export function setUiView(view: WebContentsView): void {
@@ -131,16 +150,40 @@ export function broadcastToUiViews(channel: string, ...args: unknown[]): void {
   }
 }
 
+/** 判断点 (x,y) 是否落在 rect 内（含边界）。 */
+function pointInRect(x: number, y: number, rect: Rectangle): boolean {
+  return x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height;
+}
+
 /**
  * 输入事件转发：UI view 在最上层默认接收所有事件。
  * 事件坐标在 pageRect 内且无模态框 → 阻止 UI 处理，坐标转换后 sendInputEvent 到网页 view。
  * 事件坐标在 pageRect 外（侧栏/导航栏）→ UI 自己处理。
+ *
+ * 扩展 popup 打开时（modalOpen=true 且 popupView 存在）：popupRect 内的事件转发给 popup view，
+ * 其余留给 UI（点击 popup 外部 → 遮罩层关闭 popup）。
  */
 function setupInputForwarding(view: WebContentsView): void {
   // Electron 类型未声明 input-event，需要用 any
   (view.webContents as any).on('input-event', (event: any, inputEvent: any) => {
-    // 模态框打开 → 不转发，UI 处理一切
-    if (modalOpen) return;
+    // 模态框打开：默认留给 UI 处理；但若 popup 浮层打开且事件落在 popup 矩形内，转发给 popup view。
+    if (modalOpen) {
+      if (popupView && popupRect && !popupView.webContents.isDestroyed() &&
+        pointInRect(inputEvent.x, inputEvent.y, popupRect)) {
+        event.preventDefault();
+        if (inputEvent.type === 'mouseDown') {
+          try { popupView.webContents.focus(); } catch (_) {}
+        }
+        try {
+          popupView.webContents.sendInputEvent({
+            ...inputEvent,
+            x: inputEvent.x - popupRect.x,
+            y: inputEvent.y - popupRect.y
+          });
+        } catch (_) {}
+      }
+      return;
+    }
 
     if (!currentTabId || !pageRect) return;
 
@@ -193,6 +236,11 @@ function relayout(): void {
     try { entry.view.setBounds(bounds); } catch (e) {
       console.warn('[viewManager] setBounds failed for', tabId, e);
     }
+  }
+
+  // popup 浮层始终保持在最上层（窗口尺寸变化后 z-order 不变，但保险处理）
+  if (popupView && !popupView.webContents.isDestroyed()) {
+    try { mainWindow.contentView.addChildView(popupView); } catch (_) {}
   }
 }
 
@@ -359,6 +407,134 @@ function destroyView(tabId: string): void {
   views.delete(tabId);
 }
 
+/**
+ * 打开扩展 popup 浮层。
+ * 创建独立 WebContentsView（与普通网页同款 prefs：同 partition、sandbox），加载
+ * chrome-extension://<id>/<popup>。初始用最小尺寸定位到锚点下方并置顶；内容布局确定后，
+ * Chromium 经 preferred-size-changed 事件回报「容纳文档无需滚动的最小尺寸」，clamp 到
+ * [min,max] 区间重新 setBounds 并通知 UI（字体/异步内容变化会持续触发，天然收敛）。
+ *
+ * 锚点 anchor 是 UI 层坐标系（CSS 像素），通常为图标按钮的 {left, bottom}。
+ * openDevTools=true 时（扩展管理页「检查 popup」触发），在 did-finish-load 后以独立窗口
+ * 打开 devtools，方便调试 popup（Chrome 行为）。
+ * 会先关闭已存在的 popup（切换不同扩展时）。
+ */
+async function openPopup(extId: string, url: string, anchor: { x: number; y: number }, openDevTools = false): Promise<void> {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  // 切换扩展 / 重复打开：先关掉旧的
+  if (popupView) closePopup();
+
+  // popup 用普通网页同款 prefs（同 partition、sandbox），但额外开启 enablePreferredSizeMode：
+  // 让 Chromium 计算「容纳文档布局无需滚动的最小尺寸」（preferredSize），并通过
+  // preferred-size-changed 事件回报。这是扩展 popup 内容自适应的正确语义——
+  // 不受响应式布局（body width:100%）撑满视口的干扰。
+  const view = new WebContentsView({
+    webPreferences: { ...webPrefsForSrc(url), enablePreferredSizeMode: true }
+  });
+  popupView = view;
+
+  const winBounds = mainWindow.getBounds();
+
+  // 按宽高计算定位（右溢出贴右边 / 下溢出贴下边），返回完整 Rectangle。
+  const layoutFor = (nw: number, nh: number): Rectangle => {
+    let x = Math.round(anchor.x);
+    let y = Math.round(anchor.y);
+    if (x + nw > winBounds.width) x = Math.max(0, winBounds.width - nw);
+    if (y + nh > winBounds.height) y = Math.max(0, winBounds.height - nh);
+    return { x, y, width: nw, height: nh };
+  };
+
+  // 初始尺寸用最小值：给内容一个能容纳最小尺寸的初始视口，Chromium 才会正确算出首选尺寸
+  // （参考 electron-browser-shell：「Set small initial size so the preferred size grows to what's needed」）。
+  // 这样 popup 一开始就小，不会先撑满再收缩出现大块空白。
+  popupRect = layoutFor(POPUP_MIN_W, POPUP_MIN_H);
+  try { view.setBounds(popupRect); } catch (e) { console.warn('[viewManager] popup setBounds failed', e); }
+
+  // 加入窗口并置顶（最后 addChildView → 位于 UI view 之上）
+  try {
+    mainWindow.contentView.addChildView(view);
+  } catch (e) {
+    console.warn('[viewManager] popup addChildView failed', e);
+  }
+
+  // Chromium 在内容布局确定/变化时（含字体加载、异步 DOM、JS 动态注入）持续触发此事件，
+  // 天然实现多帧收敛，无需手写定时器轮询。
+  view.webContents.on('preferred-size-changed', (_e, preferredSize: Electron.Size) => {
+    if (popupView !== view || popupView.webContents.isDestroyed()) return;
+    const nw = Math.min(POPUP_MAX_W, Math.max(POPUP_MIN_W, Math.round(preferredSize.width) || POPUP_MIN_W));
+    // 高度加 1px 容差：preferredSize 偶尔少算边界像素，导致内容刚好溢出触发不必要的滚动条
+    const nh = Math.min(POPUP_MAX_H, Math.max(POPUP_MIN_H, Math.round(preferredSize.height) + 1 || POPUP_MIN_H));
+    popupRect = layoutFor(nw, nh);
+    try { view.setBounds(popupRect); } catch (e) { console.warn('[viewManager] popup preferred setBounds failed', e); }
+    // 通知 UI 实测尺寸（UI 据此绘制阴影装饰）
+    if (uiView && !uiView.webContents.isDestroyed()) {
+      try { uiView.webContents.send('popup-measured', popupRect); } catch (_) {}
+    }
+  });
+
+  // 注入 CSS 让 popup 滚动条不占布局空间（overlay 风格，贴近 Chrome 真实 popup 行为）。
+  // 经典滚动条会占 ~15px 宽度，在尺寸卡的极限的 popup 上会导致内容换行 → 高度增加 → 出现
+  // 不必要的垂直滚动条 → 「去掉滚动条就不能滚」的现象。隐藏滚动条后 Chromium 计算 preferredSize
+  // 时也不再计入滚动条宽度，从根上消除恶性循环（滚动能力保留，仅不显示）。
+  const injectPopupScrollbarCSS = (): void => {
+    if (popupView !== view || popupView.webContents.isDestroyed()) return;
+    const css = `
+      html, body { scrollbar-width: none !important; -ms-overflow-style: none !important; }
+      html::-webkit-scrollbar, body::-webkit-scrollbar { width: 0 !important; height: 0 !important; display: none !important; }
+      *::-webkit-scrollbar { width: 0 !important; height: 0 !important; }
+    `;
+    view.webContents.insertCSS(css).catch((e) => {
+      console.warn('[viewManager] popup insertCSS failed', extId, e);
+    });
+  };
+  view.webContents.on('dom-ready', injectPopupScrollbarCSS);
+  view.webContents.on('did-finish-load', injectPopupScrollbarCSS);
+
+  // 扩展管理页「检查 popup」：内容加载完成后以独立窗口打开 devtools（Chrome 行为）。
+  if (openDevTools) {
+    view.webContents.once('did-finish-load', () => {
+      try { view.webContents.openDevTools({ mode: 'detach' }); } catch (e) {
+        console.warn('[viewManager] popup openDevTools failed', extId, e);
+      }
+    });
+  }
+
+  // 加载 popup 内容前，先确保 MV3 service worker 已就绪（避免 popup 首条 sendMessage 踩空 →
+  // "Receiving end does not exist"）。由 extensions.ts 经 lifecycleHooks 注入，解环。
+  if (lifecycleHooks.onPopupOpened) {
+    try { await lifecycleHooks.onPopupOpened(extId); } catch (_) { /* 失败不阻塞 */ }
+  }
+
+  try {
+    view.webContents.loadURL(url).catch((e) => {
+      console.warn('[viewManager] popup loadURL failed', extId, url, e);
+      closePopup();
+    });
+  } catch (e) {
+    console.warn('[viewManager] popup loadURL threw', extId, url, e);
+    closePopup();
+  }
+}
+
+/** 关闭扩展 popup 浮层：销毁 view、清空状态、通知 UI。 */
+function closePopup(): void {
+  popupPinned = false;
+  if (popupView) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      try { mainWindow.contentView.removeChildView(popupView); } catch (_) {}
+    }
+    try {
+      const wc = popupView.webContents as Electron.WebContents & { destroy?: () => void };
+      if (!wc.isDestroyed() && wc.destroy) wc.destroy();
+    } catch (_) {}
+    popupView = null;
+  }
+  popupRect = null;
+  if (uiView && !uiView.webContents.isDestroyed()) {
+    try { uiView.webContents.send('popup-closed'); } catch (_) {}
+  }
+}
+
 export function initViewManager(win: BrowserWindow): void {
   mainWindow = win;
   win.on('resize', () => relayout());
@@ -452,8 +628,48 @@ export function initViewManager(win: BrowserWindow): void {
     modalOpen = open;
   });
 
-  // 滚轮事件转发：renderer 侧 DOM wheel 事件 → 主进程 → sendInputEvent 到网页 view
+  // —— 扩展 popup 浮层生命周期 ——
+  // popup 打开期间 modalOpen 必须为 true（UI 侧负责设置），否则输入会被转发到下层网页。
+  ipcMain.handle('popup-open', (_e, extId: string, url: string, anchor: { x: number; y: number }) => {
+    if (typeof extId !== 'string' || typeof url !== 'string' || !anchor) return;
+    openPopup(extId, url, anchor);
+  });
+  ipcMain.handle('popup-close', () => {
+    closePopup();
+  });
+  // 扩展管理页「检查 popup」：弹出 popup + 立即开 devtools。
+  // 从管理页触发没有图标坐标，用窗口左上角作为默认锚点（popup 出现在可见区域即可，
+  // devtools 为独立窗口，位置不影响调试）。openDevTools 模式下 popup 被「钉住」，
+  // 主窗口 blur 不会自动关闭它（否则 devtools 窗口出现即触发失焦 → popup 被销毁）。
+  ipcMain.handle('popup-open-devtools', (_e, extId: string, url: string) => {
+    if (typeof extId !== 'string' || typeof url !== 'string') return;
+    const winBounds = win.getBounds();
+    openPopup(extId, url, { x: 16, y: Math.min(80, Math.max(16, winBounds.height - POPUP_MAX_H - 16)) }, true);
+    popupPinned = true;
+  });
+
+  // 主窗口失焦时关闭 popup（贴近 Chrome 行为：切到其它应用 popup 消失）。
+  // 但「检查 popup」模式（popupPinned）下不关闭，否则 devtools 窗口出现会立即销毁 popup。
+  win.on('blur', () => { if (!popupPinned) closePopup(); });
+
+  // 滚轮事件转发：renderer 侧 DOM wheel 事件 → 主进程 → sendInputEvent 到网页 view。
+  // popup 打开时：坐标在 popup 矩形内 → 转发给 popup view（不应用自然滚动反转，popup 跟随系统）；
+  //              其余坐标忽略（modalOpen 阻断，且 popup 外部滚轮应被遮罩吸收不触达下层网页）。
   ipcMain.handle('forward-wheel', (_e, event: { deltaX: number; deltaY: number; deltaMode: number; x: number; y: number }) => {
+    if (popupView && popupRect && !popupView.webContents.isDestroyed() &&
+      pointInRect(event.x, event.y, popupRect)) {
+      try {
+        popupView.webContents.sendInputEvent({
+          type: 'mouseWheel',
+          x: event.x - popupRect.x,
+          y: event.y - popupRect.y,
+          deltaX: event.deltaX,
+          deltaY: event.deltaY,
+          canScroll: true
+        });
+      } catch (_) {}
+      return;
+    }
     if (modalOpen || !currentTabId || !pageRect) return;
     const entry = views.get(currentTabId);
     if (!entry || entry.view.webContents.isDestroyed()) return;

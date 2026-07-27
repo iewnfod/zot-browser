@@ -55,6 +55,11 @@ export const enMessages = {
   'context.tab.select': 'Select',
   'context.tab.close': 'Close',
 
+  // 扩展图标右键菜单（App.tsx）
+  'context.extension.options': 'Options',
+  'context.extension.unpin': 'Unpin',
+  'context.extension.manage': 'Manage extensions',
+
   // 网页右键菜单（App.tsx）
   'context.web.back': 'Back',
   'context.web.forward': 'Forward',
@@ -182,6 +187,7 @@ export const enMessages = {
   'extensions.errorAction': 'Action failed.',
   'extensions.pin': 'Pin to toolbar',
   'extensions.unpin': 'Unpin from toolbar',
+  'extensions.inspectPopup': 'Inspect popup',
 
   // 下载页（DownloadsApp.tsx）
   'downloads.title': 'Downloads',

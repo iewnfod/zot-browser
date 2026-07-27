@@ -78,6 +78,10 @@ declare global {
       setCurrentTab: (tabId: string | null) => Promise<void>,
       setPageRect: (rect: { x: number; y: number; width: number; height: number }) => Promise<void>,
       setModalOpen: (open: boolean) => Promise<void>,
+      // 扩展 popup 浮层
+      popupOpen: (extId: string, url: string, anchor: { x: number; y: number }) => Promise<void>,
+      popupClose: () => Promise<void>,
+      popupOpenDevTools: (extId: string, url: string) => Promise<void>,
       forwardWheel: (event: { deltaX: number; deltaY: number; deltaMode: number; x: number; y: number }) => Promise<void>,
       getNaturalScroll: () => Promise<boolean>,
       getSystemLocale: () => Promise<Locale>,

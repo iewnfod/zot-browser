@@ -40,6 +40,14 @@ const api = {
     ipcRenderer.invoke('set-page-rect', rect),
   // 模态框 z-order 控制
   setModalOpen: (open: boolean) => ipcRenderer.invoke('set-modal-open', open),
+  // 扩展 popup 浮层：在固定扩展图标的下方弹出由原生 WebContentsView 渲染的 popup。
+  // anchor 为图标按钮的 UI 坐标系 {left, bottom}（CSS 像素）。
+  popupOpen: (extId: string, url: string, anchor: { x: number; y: number }) =>
+    ipcRenderer.invoke('popup-open', extId, url, anchor),
+  popupClose: () => ipcRenderer.invoke('popup-close'),
+  // 扩展管理页「检查 popup」：弹出 popup + 立即开 devtools（调试用，Chrome 行为）
+  popupOpenDevTools: (extId: string, url: string) =>
+    ipcRenderer.invoke('popup-open-devtools', extId, url),
   // 滚轮事件转发：renderer 侧捕获 wheel 事件 → 主进程 → sendInputEvent 到网页 view
   forwardWheel: (event: { deltaX: number; deltaY: number; deltaMode: number; x: number; y: number }) =>
     ipcRenderer.invoke('forward-wheel', event),

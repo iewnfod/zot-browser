@@ -304,6 +304,39 @@ function maybeStartServiceWorker(ext: Electron.Extension): void {
 }
 
 /**
+ * 打开扩展 popup 前确保其 MV3 service worker 已（重新）启动。
+ *
+ * MV3 service worker 会被 Chromium 在空闲后终止；打开 popup 时若不重新唤醒，
+ * popup 启动后立刻发出的 chrome.runtime.sendMessage（拉数据）会无人接收 →
+ * "Could not establish connection. Receiving end does not exist."，且功能异常。
+ *
+ * 与 maybeStartServiceWorker 的区别：入参是 extId（从 installed map 查 manifest，
+ * 不依赖 Electron.Extension 对象），返回 Promise 供调用方 await（worker 就绪后再加载
+ * popup 内容，避免首条消息踩空窗口）。worker 已运行时幂等无副作用。
+ */
+export async function ensurePopupServiceWorker(extId: string): Promise<void> {
+  const rec = installed.get(extId);
+  if (!rec) return;
+  const manifest = rec.manifest as Record<string, unknown> | undefined;
+  const mv = manifest?.['manifest_version'];
+  const bg = manifest?.['background'];
+  const sw = bg && typeof bg === 'object' ? (bg as Record<string, unknown>)['service_worker'] : undefined;
+  if (mv !== 3 || typeof sw !== 'string' || !sw) return; // 非 MV3 或无 service_worker，无需启动
+  const scope = `chrome-extension://${extId}`;
+  const ses = session.fromPartition(PARTITION);
+  const workers = ses.serviceWorkers as unknown as {
+    startWorkerForScope?: (scope: string) => Promise<unknown>;
+  };
+  if (!workers.startWorkerForScope) return;
+  try {
+    await workers.startWorkerForScope(scope);
+  } catch (e) {
+    // 启动失败不阻塞 popup 打开（catch 兜底）
+    console.warn('[extensions] startWorkerForScope failed before popup for', extId, e);
+  }
+}
+
+/**
  * 开机时把所有已启用扩展重新 loadExtension 进 partition。
  * 必须在首个网页 view 创建前调用，content scripts 才能注入到首批页面。
  * 单个失败不影响其它扩展（标 disabled 并广播，等用户在扩展页处理）。
@@ -516,6 +549,7 @@ export async function initExtensionHost(): Promise<void> {
     onViewCreated: (tabId) => registerTabToHost(tabId),
     onViewDestroyed: (tabId) => unregisterTabFromHost(tabId),
     onCurrentTabChanged: (tabId) => selectTabInHost(tabId),
+    onPopupOpened: (extId) => ensurePopupServiceWorker(extId),
   });
 }
 

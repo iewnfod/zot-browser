@@ -54,6 +54,11 @@ export const zhCNMessages: Record<MessageKey, string> = {
   'context.tab.select': '选择',
   'context.tab.close': '关闭',
 
+  // 扩展图标右键菜单
+  'context.extension.options': '选项',
+  'context.extension.unpin': '取消固定',
+  'context.extension.manage': '管理扩展',
+
   // 网页右键菜单
   'context.web.back': '后退',
   'context.web.forward': '前进',
@@ -181,6 +186,7 @@ export const zhCNMessages: Record<MessageKey, string> = {
   'extensions.errorAction': '操作失败。',
   'extensions.pin': '固定到工具栏',
   'extensions.unpin': '取消固定',
+  'extensions.inspectPopup': '检查弹出页面',
 
   // 下载页
   'downloads.title': '下载',
