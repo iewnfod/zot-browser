@@ -45,12 +45,22 @@ export { extractPermissions };
  * 都跑在该 partition 上；透明 UI view 用默认 session（不走该 partition），
  * 因此扩展 content_scripts 不会污染浏览器 UI。
  *
- * 已知限制（Electron 原生能力所限）：
- * - 不支持 .crx 打包格式（仅未打包目录）。CWS 安装靠下载 .crx → 剥头 → 解压实现。
- * - 每次启动都要重新 loadExtension（Electron 不跨重启记忆）→ loadAllEnabledOnBoot。
- * - MV3 service worker 需手动启动（see maybeStartServiceWorker），已处理。
- * - 不支持 popup / options 页 / 大部分 chrome.* API（Electron 原生仅支持 content script 注入）。
+ * 能力边界（Electron 原生 + electron-chrome-extensions 库共同提供）：
+ * - content_scripts：Electron 原生注入（manifest 声明即生效）。
+ * - chrome.* API（tabs/runtime/storage/contextMenus/permissions/webRequest/webNavigation/cookies…）：
+ *   由 electron-chrome-extensions 库提供。库通过 session 级 preload 在 chrome-extension:// 页面
+ *   与 MV3 service worker 里注入 chrome 全局对象。
+ * - MV3 service worker：Electron 不会自动启动，由 maybeStartServiceWorker / ensurePopupServiceWorker
+ *   手动 startWorkerForScope。
+ * - MV2 background page：由 Electron 原生托管（webContents type 为 'backgroundPage'），库会在
+ *   web-contents-created 时捕获引用并保持常驻，无需项目侧处理。
+ * - popup：自实现（viewManager.openPopup，独立 WebContentsView + preferredSize 自适应）。
+ * - options 页：经 chrome-extension:// 走 partition 内加载（webcontent.ts 已放行）。
+ * - .crx 安装：CWS 安装靠下载 .crx → 剥头 → 解压实现（端点见 downloadCrx，best-effort）。
  * - 权限为「安装时审核 + 整体启用/禁用」，无法单权限拒绝（需重写 manifest，过侵入）。
+ *
+ * ⚠️ 时序：electron-chrome-extensions 宿主实例必须先于 loadExtension 创建
+ * （见 createExtensionHost 注释），否则 extension-loaded 事件丢失导致库 API 失效。
  */
 
 const STORE_KEY = 'extensions';
@@ -430,17 +440,27 @@ function requestRendererInstallConfirm(payload: InstallConfirmPayload): Promise<
 }
 
 /**
- * 初始化 electron-chrome-extensions 宿主。
- * 在 index.ts 的 app.whenReady 里、createMainWindow 之后、首张网页 view 创建前调用。
+ * 创建 electron-chrome-extensions 宿主实例（仅 `new ElectronChromeExtensions`）。
  *
- * 提供的 impl 回调把扩展对 tab/window 的操作桥接到我们的标签系统
- * （标签状态真相源在 renderer，故需经 IPC 往返）。
+ * ⚠️ 时序关键：必须在任何 `session.loadExtension` 之前调用！
+ * 库的各 API（PermissionsAPI / BrowserActionAPI / RuntimeAPI …）以及 manifest 处理
+ * （readLoadedExtensionManifest）都依赖 session 的 `extension-loaded` 事件来登记扩展。
+ * 若先 loadExtension 再 new 实例，那些事件会全部丢失，导致：
+ *   - chrome.permissions.contains/request 失败（permissionMap 为空）；
+ *   - chrome.action/browserAction 的图标、标题、popup 注册丢失（很多 MV3 扩展因此点图标无反应）；
+ *   - chrome_url_overrides 等清单覆盖不生效。
+ * 部分 API（如 PermissionsAPI）构造时会补查 getAllExtensions()，但 BrowserActionAPI 没有，
+ * 故唯一可靠的做法是保证库实例先于 loadExtension 创建。
+ *
+ * 本函数不依赖主窗口 / UI view（库 constructor 也不需要它们），故可在 createMainWindow 之前
+ * 调用。createTab / selectTab 等回调是 lazy 的（扩展真正调用时才触发），届时 UI 已就绪。
+ *
+ * impl 回调把扩展对 tab/window 的操作桥接到我们的标签系统（标签状态真相源在 renderer，
+ * 故需经 IPC 往返）。
  */
-export async function initExtensionHost(): Promise<void> {
+export function createExtensionHost(): void {
+  if (extensionHost) return; // 幂等
   const ses = session.fromPartition(PARTITION);
-  const win = getMainWindow();
-  if (!win) { console.warn('[extensions] main window not ready, host init skipped'); return; }
-
   extensionHost = new ElectronChromeExtensions({
     license: 'GPL-3.0',
     session: ses,
@@ -465,15 +485,28 @@ export async function initExtensionHost(): Promise<void> {
       if (tabId) uv?.webContents.send('tabs-remove-by-tabid', tabId);
     },
     // 扩展调 chrome.windows.create → 复用 createTab（单窗口浏览器，新窗口即新标签）
-    createWindow: async () => win,
+    createWindow: async () => getMainWindow()!,
     removeWindow: () => { /* 单窗口，忽略 */ },
   });
+  console.log('[extensions] electron-chrome-extensions host created on', PARTITION);
+}
+
+/**
+ * 初始化扩展宿主的「需要主窗口/UI」部分：注册 session 的 extension-loaded 登记回调、
+ * 接入 electron-chrome-web-store、把 view 生命周期桥接到宿主。
+ *
+ * 在 index.ts 的 app.whenReady 里、createMainWindow + setUiView 之后、首张网页 view 创建前调用。
+ * （createExtensionHost 必须更早，见其注释。）
+ */
+export async function initExtensionHost(): Promise<void> {
+  const ses = session.fromPartition(PARTITION);
+  const win = getMainWindow();
+  if (!win) { console.warn('[extensions] main window not ready, host init skipped'); return; }
+  if (!extensionHost) { console.warn('[extensions] host not created, call createExtensionHost first'); return; }
 
   // 处理扩展宿主对当前标签的查询：扩展需要知道"当前活动 tab"。
   // 库内部维护 addTab 注册的 webContents，selectTab 由我们主动调用驱动。
   // （库的 selectTab 也会在 addTab 时自动设首个为 active。）
-
-  console.log('[extensions] electron-chrome-extensions host initialized on', PARTITION);
 
   // 监听 session 上的 extension-loaded：任何来源（启动加载 / 启用 / CWS 安装 / 自动更新）
   // 加载扩展后都会触发。借此把 CWS 安装的扩展登记进我们的 installed 记录，供扩展页展示与管理。
@@ -589,7 +622,13 @@ export function selectTabInHost(tabId: string): void {
   } catch (_) { /* 忽略 */ }
 }
 
-/** 获取宿主实例（供 index.ts 注册 crx:// 协议等）。 */
+/**
+ * 获取宿主实例。
+ *
+ * 历史上用于注册 crx:// 协议（<browser-action-list> Web Component 所需），但本项目未启用
+ * 该组件（用自画的固定图标按钮），故目前仅作内部引用 / 测试用。如需启用 crx:// 协议：
+ *   `ElectronChromeExtensions.handleCRXProtocol(session)` —— 在 createExtensionHost 之后调用。
+ */
 export function getExtensionHost(): ElectronChromeExtensions | null {
   return extensionHost;
 }

@@ -10,7 +10,7 @@ import { loadWebContentEvents } from './webcontent';
 import { loadStoreEvents } from './storage';
 import { initViewManager, setUiView } from './viewManager';
 import { loadDownloadEvents } from './download';
-import { loadExtensionEvents, loadAllEnabledOnBoot, initExtensionHost } from './extensions';
+import { loadExtensionEvents, loadAllEnabledOnBoot, initExtensionHost, createExtensionHost } from './extensions';
 import { localeFromTag, type Locale } from '../renderer/src/lib/i18n';
 
 // Linux 下强制 X11（XWayland），保证透明窗口可用。
@@ -134,9 +134,17 @@ app.whenReady().then(async () => {
   // 下载管理：监听网页触发的下载（partition 级）+ 暴露控制 IPC
   loadDownloadEvents();
 
-  // 扩展系统：注册 IPC，并在首个网页 view 创建前加载已启用扩展，
-  // 使其 content_scripts 能注入到 partition 下后续创建的所有网页 view。
+  // 扩展系统：注册 IPC。
   loadExtensionEvents();
+
+  // ⚠️ 时序关键：必须先创建 electron-chrome-extensions 宿主实例，再 loadExtension。
+  // 库的各 API（permissions/action/runtime…）依赖 session 的 `extension-loaded` 事件登记
+  // 扩展元信息；若先加载扩展再建实例，事件全部丢失 → chrome.* API 大面积失效（详见
+  // createExtensionHost 注释）。createExtensionHost 不依赖窗口，故可在此提前调用。
+  createExtensionHost();
+
+  // 在首个网页 view 创建前加载已启用扩展，使其 content_scripts 能注入到 partition 下
+  // 后续创建的所有网页 view。
   await loadAllEnabledOnBoot();
 
   ipcMain.handle('scale-factor', () => {

@@ -424,6 +424,12 @@ async function openPopup(extId: string, url: string, anchor: { x: number; y: num
   // 切换扩展 / 重复打开：先关掉旧的
   if (popupView) closePopup();
 
+  // 立即阻断输入转发到下层网页：popup 从创建到加载完成有若干异步阶段（SW 唤醒、loadURL），
+  // 若等 renderer 经异步 IPC 设 setModalOpen(true) 才生效，期间 popup 内的鼠标事件会走
+  // 「非 modalOpen 分支」被转发到下层网页 → popup 点不动 / 点击穿透。主进程自己掌握该状态，
+  // 在此同步置位，消除窗口期。（关闭由 renderer 经 setModalOpen 重算接管，closePopup 不重置。）
+  modalOpen = true;
+
   // popup 用普通网页同款 prefs（同 partition、sandbox），但额外开启 enablePreferredSizeMode：
   // 让 Chromium 计算「容纳文档布局无需滚动的最小尺寸」（preferredSize），并通过
   // preferred-size-changed 事件回报。这是扩展 popup 内容自适应的正确语义——

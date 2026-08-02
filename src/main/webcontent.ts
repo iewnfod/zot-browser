@@ -38,6 +38,14 @@ export function loadWebContentEvents() {
             uv.webContents.send('open-url-in-new-tab', url);
             console.info('[web-contents-created.setWindowOpenHandler] Forwarded url to renderer to open in new tab:', url);
           }
+        } else if (url && url.startsWith('chrome-extension://')) {
+          // 扩展页面（options、chrome.windows.create({url:'chrome-extension://...'})、
+          // popup 内的 window.open 等）必须走 partition 内加载，而非 shell.openExternal。
+          // 扔给系统浏览器会失败（系统没有 chrome-extension 协议 + 扩展数据在 partition 内）。
+          if (uv) {
+            uv.webContents.send('open-url-in-new-tab', url);
+            console.info('[web-contents-created.setWindowOpenHandler] Forwarded chrome-extension url to renderer:', url);
+          }
         } else {
           shell.openExternal(url).catch(() => {});
           console.info('[web-contents-created.setWindowOpenHandler] Not a webpage, use shell open:', url);
